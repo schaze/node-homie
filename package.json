@@ -1,9 +1,9 @@
 {
   "name": "node-homie",
-  "version": "0.9.21",
+  "version": "0.9.22",
   "description": "Typescript implementation of the homie 4.x convention",
-  "main": "./lib/cjs/cjs/index.js",
-  "module": "./lib/cjs/es6/index.js",
+  "main": "./lib/cjs/index.js",
+  "module": "./lib/es6/index.js",
   "es2015": "../lib/esm/index.js",
   "types": "index.d.ts",
   "typesVersions": {
