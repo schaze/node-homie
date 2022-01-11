@@ -3,7 +3,7 @@
     "types": "../lib/types/homie-base/index.d.ts",
     "main": "../lib/cjs/homie-base/index.js",
     "module": "../lib/es6/homie-base/index.js",
-    "es2015": "../lib/es6/homie-base/index.js",
+    "es2015": "../lib/esm/homie-base/index.js",
     "sideEffects": false
   }
   

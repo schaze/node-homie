@@ -3,7 +3,7 @@
     "types": "../lib/types/model/index.d.ts",
     "main": "../lib/cjs/model/index.js",
     "module": "../lib/es6/model/index.js",
-    "es2015": "../lib/es6/model/index.js",
+    "es2015": "../lib/esm/model/index.js",
     "sideEffects": false
   }
   

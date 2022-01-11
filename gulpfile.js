@@ -7,6 +7,7 @@ const merge = require('merge2')
 // pull in the project TypeScript config
 const tsProject = ts.createProject('./tsconfig.cjs.json');
 const tsProjectES6 = ts.createProject('./tsconfig.es6.json');
+const tsProjectESM = ts.createProject('./tsconfig.esm.json');
 const tsProjectTypes = ts.createProject('./tsconfig.types.json');
 
 function devBuild() {
@@ -16,6 +17,9 @@ function devBuild() {
   const tsResultES6 = tsProjectES6.src()
     .pipe(sourcemaps.init({ debug: true }))
     .pipe(tsProjectES6());
+  const tsResultESM = tsProjectESM.src()
+    .pipe(sourcemaps.init({ debug: true }))
+    .pipe(tsProjectESM());
   const tsResultTypes = tsProjectTypes.src()
     .pipe(sourcemaps.init({ debug: true }))
     .pipe(tsProjectTypes());
@@ -36,6 +40,13 @@ function devBuild() {
       }))
       .pipe(sourcemaps.write('.', { includeContent: false, sourceRoot: function (file) { return file.cwd + '/src/'; } }))
       .pipe(gulp.dest(tsProjectES6.options.outDir)),
+    tsResultESM.js
+      .pipe(sourcemaps.mapSources(function (sourcePath, file) {
+        // source paths are prefixed with '../src/'
+        return sourcePath.slice(1);
+      }))
+      .pipe(sourcemaps.write('.', { includeContent: false, sourceRoot: function (file) { return file.cwd + '/src/'; } }))
+      .pipe(gulp.dest(tsProjectESM.options.outDir)),
     tsResultTypes.dts
       .pipe(sourcemaps.mapSources(function (sourcePath, file) {
         // source paths are prefixed with '../src/'
@@ -54,12 +65,16 @@ function prodBuild() {
   const tsResultES6 = tsProjectES6.src()
     .pipe(sourcemaps.init())
     .pipe(tsProjectES6());
+  const tsResultESM = tsProjectESM.src()
+    .pipe(sourcemaps.init())
+    .pipe(tsProjectESM());
   const tsResultTypes = tsProjectTypes.src()
     .pipe(sourcemaps.init())
     .pipe(tsProjectTypes());
   return merge([
     tsResult.js.pipe(gulp.dest(tsProject.options.outDir)),
     tsResultES6.js.pipe(gulp.dest(tsProjectES6.options.outDir)),
+    tsResultESM.js.pipe(gulp.dest(tsProjectESM.options.outDir)),
     tsResultTypes.dts.pipe(gulp.dest(tsProjectTypes.options.outDir)),
   ]);
 
@@ -71,6 +86,7 @@ function assets() {
   return merge([
     gulp.src(ASSETS).pipe(gulp.dest(tsProject.options.outDir)),
     gulp.src(ASSETS).pipe(gulp.dest(tsProjectES6.options.outDir)),
+    gulp.src(ASSETS).pipe(gulp.dest(tsProjectESM.options.outDir)),
   ]);
 }
 

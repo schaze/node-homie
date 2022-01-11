@@ -3,7 +3,7 @@
     "types": "../lib/types/misc/index.d.ts",
     "main": "../lib/cjs/misc/index.js",
     "module": "../lib/es6/misc/index.js",
-    "es2015": "../lib/es6/misc/index.js",
+    "es2015": "../lib/esm/misc/index.js",
     "sideEffects": false
   }
   
