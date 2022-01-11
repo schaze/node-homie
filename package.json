@@ -1,0 +1,105 @@
+{
+  "name": "node-homie",
+  "version": "0.9.20",
+  "description": "Typescript implementation of the homie 4.x convention",
+  "main": "./lib/cjs/cjs/index.js",
+  "module": "./lib/cjs/es6/index.js",
+  "es2015": "../lib/es6/index.js",
+  "types": "index.d.ts",
+  "typesVersions": {
+    ">=4.2": {
+      "*": [
+        "lib/types/*"
+      ]
+    }
+  },
+  "scripts": {
+    "gulp": "gulp",
+    "build": "gulp prod"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/schaze/node-homie.git"
+  },
+  "homepage": "https://github.com/schaze/node-homie#README.md",
+  "files": [
+    "lib",
+    "lib.browser",
+    "src",
+    "homie-base",
+    "controller",
+    "misc",
+    "model",
+    "mqtt",
+    "rx",
+    "util",
+    "package.json",
+    "tsconfig.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "node": "./lib/cjs/index.js",
+      "es2015": "./lib/es6/index.js",
+      "default": "./lib/cjs/index.js"
+    },
+    "./controller": {
+      "node": "./lib/cjs/controller/index.js",
+      "es2015": "./lib/es6/controller/index.js",
+      "default": "./lib/cjs/controller/index.js"
+    },
+    "./misc": {
+      "node": "./lib/cjs/misc/index.js",
+      "es2015": "./lib/es6/misc/index.js",
+      "default": "./lib/cjs/misc/index.js"
+    },
+    "./model": {
+      "node": "./lib/cjs/model/index.js",
+      "es2015": "./lib/es6/model/index.js",
+      "default": "./lib/cjs/model/index.js"
+    },
+    "./mqtt": {
+      "node": "./lib/cjs/mqtt/index.js",
+      "es2015": "./lib/es6/mqtt/index.js",
+      "default": "./lib/cjs/mqtt/index.js"
+    },
+    "./rx": {
+      "node": "./lib/cjs/rx/index.js",
+      "es2015": "./lib/es6/rx/index.js",
+      "default": "./lib/cjs/rx/index.js"
+    },
+    "./util": {
+      "node": "./lib/cjs/util/index.js",
+      "es2015": "./lib/es6/util/index.js",
+      "default": "./lib/cjs/util/index.js"
+    },
+    "./homie-base": {
+      "node": "./lib/cjs/homie-base/index.js",
+      "es2015": "./lib/es6/homie-base/index.js",
+      "default": "./lib/cjs/homie-base/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "keywords": [
+    "homie"
+  ],
+  "author": {
+    "name": "schaze",
+    "email": "schazet@gmail.com"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@tsconfig/node14": "^1.0.0",
+    "@types/node": "^14.17",
+    "gulp": "~4.0.2",
+    "gulp-sourcemaps": "~3.0.0",
+    "gulp-typescript": "~5.0.1",
+    "merge2": "~1.4.1",
+    "typescript": "~4.4.4"
+  },
+  "dependencies": {
+    "mqtt": "~4.2.8",
+    "rxjs": "~7.4"
+  }
+}

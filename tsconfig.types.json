@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.es6.json",
+  "compilerOptions": {
+    "module": "es2015",
+    "target": "esnext",
+    "outDir": "lib/types"
+  }
+}

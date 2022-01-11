@@ -1,0 +1,21 @@
+{
+    "id": "cd-stehlampe-papier",
+    "name": "cd-stehlampe-papier",
+    "compounds": {
+        "on": {
+            "id": "on",
+            "datatype": "boolean",
+            "aggregateFunction": "or",
+            "format": "",
+            "unit": "",
+            "settable": true,
+            "retained": true,
+            "mappings": {},
+            "members": [
+                "wz_stehlampe_papier_1/state/on",
+                "wz_stehlampe_papier_2/state/on",
+                "wz_stehlampe_papier_3/state/on"
+            ]
+        }
+    }
+}

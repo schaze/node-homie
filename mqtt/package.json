@@ -1,0 +1,9 @@
+{
+    "name": "node-homie/mqtt",
+    "types": "../lib/types/mqtt/index.d.ts",
+    "main": "../lib/cjs/mqtt/index.js",
+    "module": "../lib/es6/mqtt/index.js",
+    "es2015": "../lib/es6/mqtt/index.js",
+    "sideEffects": false
+  }
+  

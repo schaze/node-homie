@@ -1,0 +1,9 @@
+{
+    "name": "node-homie/controller",
+    "types": "../lib/types/controller/index.d.ts",
+    "main": "../lib/cjs/controller/index.js",
+    "module": "../lib/es6/controller/index.js",
+    "es2015": "../lib/es6/controller/index.js",
+    "sideEffects": false
+  }
+  

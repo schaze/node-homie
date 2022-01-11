@@ -1,0 +1,9 @@
+{
+    "name": "node-homie/util",
+    "types": "../lib/types/util/index.d.ts",
+    "main": "../lib/cjs/util/index.js",
+    "module": "../lib/es6/util/index.js",
+    "es2015": "../lib/es6/util/index.js",
+    "sideEffects": false
+  }
+  

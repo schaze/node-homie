@@ -1,0 +1,9 @@
+{
+    "name": "node-homie/rx",
+    "types": "../lib/types/rx/index.d.ts",
+    "main": "../lib/cjs/rx/index.js",
+    "module": "../lib/es6/rx/index.js",
+    "es2015": "../lib/es6/rx/index.js",
+    "sideEffects": false
+  }
+  

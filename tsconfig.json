@@ -1,0 +1,32 @@
+{
+  "extends": "@tsconfig/node14/tsconfig.json",
+  "compilerOptions": {
+    "sourceMap": true,
+    "declaration": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "downlevelIteration": true,
+    "experimentalDecorators": true,
+    "moduleResolution": "node"
+  },
+  "include": [
+    "./src/**/*.ts"
+  ],
+  "paths": {
+    "node-homie": ["./src/index"],
+    "node-homie/homie-base": ["./src/homie-base/index"],
+    "node-homie/misc": ["./src/misc/index"],
+    "node-homie/model": ["./src/model/index"],
+    "node-homie/mqtt": ["./src/mqtt/index"],
+    "node-homie/rx": ["./src/rx/index"],
+    "node-homie/smarthome": ["./src/smarthome/index"],
+    "node-homie/util": ["./src/util/index"]
+  },
+  "exclude": [
+    "node_modules"
+  ]
+}
