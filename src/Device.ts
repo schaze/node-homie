@@ -300,7 +300,9 @@ export class HomieDevice extends HomieRootBase<HomieDeviceAtrributes> {
         if (this.isInitialized) {
             // await this.sendStateUpdate('disconnected');
             // this.log.verbose(`disconnecting...`)
-            await lastValueFrom(this.updateState$('disconnected'));
+            if (this.mode === HomieDeviceMode.Device) {
+                await lastValueFrom(this.updateState$('disconnected'));
+            }
             try {
                 await this.mqtt.onDestroy();
                 this.log.debug('Connection closed');
