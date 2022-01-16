@@ -35,19 +35,6 @@ export class HomieNode extends HomieItemBase<HomieDevice, HomieNodeAtrributes> {
 
     constructor(device: HomieDevice, attrs: HomieNodeAtrributes) {
         super(device, attrs)
-        // this.parent.addNode(this);
-
-        // // Handle side-effects of adding and removing properties
-        // this.propertyStore.events$.pipe(
-        //     takeUntil(this.onDestroy$),
-        //     tap(async event => {
-        //         this.setAttribute("properties", Object.keys(this.properties).join(','));
-        //         if (this.device.isInitialized && this.mode === HomieDeviceMode.Device) {
-        //             this.publishAttribute$('properties', this.attributes.properties).subscribe();
-        //         }
-        //     })
-        // ).subscribe();
-
     }
 
     protected override parseAttribute<T extends keyof HomieNodeAtrributes>(name: T, rawValue: string): HomieNodeAtrributes[T] {

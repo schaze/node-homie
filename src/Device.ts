@@ -189,10 +189,10 @@ export class HomieDevice extends HomieRootBase<HomieDeviceAtrributes> {
         try {
             const mqttInit = this.mqtt.onInit()
             this._isInitialized = true;
-            this.mqtt.onError$.pipe(takeUntil(this.onDestroy$), tap(err => { this.onError(err); })).subscribe();
-            this.mqtt.onConnect$.pipe(takeUntil(this.onDestroy$), tap(() => { this.onConnect(); })).subscribe();
+            this.mqtt.onError$.pipe(takeUntil(this.onDestroy$)).subscribe({ next: err => { this.onError(err); } });
+            this.mqtt.onConnect$.pipe(takeUntil(this.onDestroy$)).subscribe({ next: () => { this.onConnect(); } });
             await mqttInit;
-            
+
             const subs = this.subscribeTopics();
             subs.forEach(sub => sub.activate());
 
@@ -226,16 +226,15 @@ export class HomieDevice extends HomieRootBase<HomieDeviceAtrributes> {
             const sub = this.subscribe(HD_ATTR_STATE);
             subs.push(sub);
 
-            sub.messages$.pipe(
-                takeUntil(this.onDestroy$),
-                tap(msg => {
+            sub.messages$.pipe(takeUntil(this.onDestroy$)).subscribe({
+                next: msg => {
                     const state = msg.payload.toString();
                     if (state !== this.attributes.state) {
                         this.updateState$(this.attributes?.state).subscribe();
                     }
 
-                })
-            ).subscribe();
+                }
+            });
         }
         return subs;
     }
