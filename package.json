@@ -1,6 +1,6 @@
 {
   "name": "node-homie",
-  "version": "0.9.23",
+  "version": "0.9.24",
   "description": "Typescript implementation of the homie 4.x convention",
   "main": "./lib/cjs/index.js",
   "module": "./lib/es6/index.js",
