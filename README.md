@@ -1,5 +1,5 @@
 # node-homie
-
+[![Node.js Package](https://github.com/schaze/node-homie/actions/workflows/npm-publish.yml/badge.svg)](https://github.com/schaze/node-homie/actions/workflows/npm-publish.yml)
 
 ## tldr;
 A typescript implementation of the homie 4.x convention leveraging rxjs to handle asynchronous message updates native to the mqtt based homie spec.
