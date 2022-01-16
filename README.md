@@ -4,12 +4,8 @@
 ## tldr;
 A typescript implementation of the homie 4.x convention leveraging rxjs to handle asynchronous message updates native to the mqtt based homie spec.
 
-Homie convention: https://homieiot.github.io/
-<a href="https://homieiot.github.io/">
-  <object type="image/svg+xml" data="https://homieiot.github.io/img/works-with-homie.svg">
-    works with MQTT Homie
-  </object>
-</a>
+[![works with MQTT Homie](https://homieiot.github.io/img/works-with-homie.png)](https://homieiot.github.io/)
+
 
 ## Table of contents
 - About
