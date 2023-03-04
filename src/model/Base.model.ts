@@ -98,3 +98,34 @@ export function isHomieXYBriColor(color: any): color is HomieXYBriColor {
 export type TypeNullOrUndef<T> = T | null | undefined;
 
 export type TypeOrNull<T> = T | null;
+
+
+/**
+ * Recommended units for HOMIE (+some extra for good measure)
+ */
+
+export const HOMIE_UNIT_DEGREE_CELCIUS = '°C';
+export const HOMIE_UNIT_DEGREE_FAHRENHEIT = '°F';
+export const HOMIE_UNIT_DEGREE = '°';
+export const HOMIE_UNIT_LITER = 'L';
+export const HOMIE_UNIT_GALLON = 'gal';
+export const HOMIE_UNIT_VOLT = 'V';
+export const HOMIE_UNIT_WATT = 'W';
+export const HOMIE_UNIT_KILOWATT= 'kW';
+export const HOMIE_UNIT_KILOWATTHOUR = 'kWh';
+export const HOMIE_UNIT_AMPERE = 'A';
+export const HOMIE_UNIT_HERTZ = 'Hz';
+export const HOMIE_UNIT_MILI_AMPERE = 'mA';
+export const HOMIE_UNIT_PERCENT = '%';
+export const HOMIE_UNIT_METER = 'm';
+export const HOMIE_UNIT_CUBIC_METER = 'm³';
+export const HOMIE_UNIT_FEET = 'ft';
+export const HOMIE_UNIT_PASCAL = 'Pa';
+export const HOMIE_UNIT_PSI = 'psi';
+export const HOMIE_UNIT_SECONDS = 's';
+export const HOMIE_UNIT_MINUTES = 'min';
+export const HOMIE_UNIT_HOURS = 'h';
+export const HOMIE_UNIT_LUX = 'lx';
+export const HOMIE_UNIT_KELVIN = 'K';
+export const HOMIE_UNIT_MIRED = 'MK⁻¹';
+export const HOMIE_UNIT_COUNT_AMOUNT = '#';
