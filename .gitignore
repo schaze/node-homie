@@ -3,3 +3,4 @@ dist
 sessions
 lib
 lib.browser/
+devEnv.sh
