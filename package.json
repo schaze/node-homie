@@ -1,13 +1,13 @@
 {
   "name": "node-homie5",
-  "version": "0.5.17",
+  "version": "0.0.0",
   "description": "Typescript implementation of the homie 5.x convention",
   "main": "./lib/cjs/index.js",
   "module": "./lib/es6/index.js",
   "es2015": "../lib/esm/index.js",
   "types": "index.d.ts",
   "typesVersions": {
-    ">=4.2": {
+    ">=4.4": {
       "*": [
         "lib/types/*"
       ]
