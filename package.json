@@ -20,9 +20,9 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://gitea.local.schaz.org/smarthome/node-homie5.git"
+    "url": "https://github.com/schaze/node-homie.git"
   },
-  "homepage": "https://gitea.local.schaz.org/smarthome/node-homie5.git#README.md",
+  "homepage": "https://github.com/schaze/node-homie#README.md",
   "files": [
     "lib",
     "src",
@@ -82,9 +82,6 @@
     "name": "schaze",
     "email": "schazet@gmail.com"
   },
-  "publishConfig": {
-    "registry": "https://npm.local.schaz.org"
-  },
   "license": "MIT",
   "devDependencies": {
     "@tsconfig/node14": "^1.0.0",
@@ -99,6 +96,6 @@
   "dependencies": {
     "jsonschema": "~1.4.1",
     "mqtt": "~4.3.7",
-    "rxjs": "~7.8.0"
+    "rxjs": "~7.4.0"
   }
 }
