@@ -18,6 +18,8 @@ jobs:
         with:
           node-version: 14
           registry-url: https://registry.npmjs.org/
+      - run: npm config set commit-hooks false
+      - run: npm config set git-tag-version false
       - run: npm version $RELEASE_VERSION
       - run: yarn
       - run: yarn run gulp prod
