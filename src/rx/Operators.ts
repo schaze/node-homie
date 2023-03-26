@@ -91,7 +91,7 @@ export function mergeIndex<T>(indexes: { [pointer: string]: T }[]): { [pointer: 
 
 
 
-export function mandatoryPluckSwitchMap<T, R, K extends keyof T>(attr: K, project: (v: T[K]) => Observable<R>  | null | undefined , distinct = true): OperatorFunction<T, R> {
+export function mandatoryPluckSwitchMap<T, R, K extends keyof T>(attr: K, project: (v: T[K]) => Observable<R> | null | undefined, distinct = true): OperatorFunction<T, R> {
     return (source: Observable<T>): Observable<R> => {
         // pluck <attr> from object, only emit if changed and switch subscription to projected observable
         // logic is, that if our mandatory pluck emits a value we found our target and stop listening to the source observable
@@ -100,7 +100,7 @@ export function mandatoryPluckSwitchMap<T, R, K extends keyof T>(attr: K, projec
     }
 }
 
-export function optionalPluckSwitchMap<T, R, K extends keyof T>(attr : K, project: (v: T[K] | null | undefined) => Observable<R> | null | undefined, distinct = true): OperatorFunction<T | undefined, R | undefined> {
+export function optionalPluckSwitchMap<T, R, K extends keyof T>(attr: K, project: (v: T[K] | null | undefined) => Observable<R> | null | undefined, distinct = true): OperatorFunction<T | undefined, R | undefined> {
     return (source: Observable<T | undefined>): Observable<R | undefined> => {
         // pluck <attr> from source object emissions and only emit if changed
         // when the result is here switch subscription to projected observable
@@ -110,17 +110,17 @@ export function optionalPluckSwitchMap<T, R, K extends keyof T>(attr : K, projec
 }
 
 
-export function mandatorySwitchMap<T, R>(project: (v: T) => Observable<R> | null | undefined ): OperatorFunction<T, R> {
+export function mandatorySwitchMap<T, R>(project: (v: T) => Observable<R> | null | undefined): OperatorFunction<T, R> {
     return (source: Observable<T>): Observable<R> => {
         return source.pipe(
-            switchMap(v=> project(v) ?? of(undefined)),
+            switchMap(v => project(v) ?? of(undefined)),
             mandatory()
         );
 
     }
 }
 
-export function optionalSwitchMap<T, R>(project: (v: T | null | undefined) => Observable<R> | null | undefined ): OperatorFunction<T | undefined, R | undefined> {
+export function optionalSwitchMap<T, R>(project: (v: T | null | undefined) => Observable<R> | null | undefined): OperatorFunction<T | undefined, R | undefined> {
     return (source: Observable<T | undefined>): Observable<R | undefined> => {
         return source.pipe(
             switchMap(v => {
@@ -135,7 +135,7 @@ export function optionalSwitchMap<T, R>(project: (v: T | null | undefined) => Ob
 export function mandatoryPluck<T, K extends keyof T>(attr: K): OperatorFunction<T, T[K]> {
     return (source: Observable<T>): Observable<T[K]> => {
         return source.pipe(
-            pluck(attr),
+            map(attrs => attrs[attr]),
             mandatory()
         );
 
@@ -145,7 +145,7 @@ export function mandatoryPluck<T, K extends keyof T>(attr: K): OperatorFunction<
 export function optionalPluck<T, K extends keyof T>(attr: K): OperatorFunction<T | undefined, T[K] | undefined> {
     return (source: Observable<T | undefined>): Observable<T[K] | undefined> => {
         return source.pipe(
-            map(v => v? v[attr] : undefined)
+            map(v => v ? v[attr] : undefined)
         );
 
     }
@@ -157,5 +157,46 @@ export function mandatory<T, R extends T>(): OperatorFunction<T | null | undefin
         return source.pipe(
             filter(v => v !== null && v !== undefined),
         ) as Observable<R>;
+    }
+}
+
+
+export function flattenAndRemoveNullish<T, R extends NonNullable<T>>(): OperatorFunction<T[][], R[]> {
+    return (source: Observable<T[][]>): Observable<R[]> => {
+        return source.pipe(
+            map(objs => {
+                const filtered = [];
+                for (let index = 0; index < objs.length; index++) {
+                    const dataSet = objs[index];
+                    for (let indexSet = 0; indexSet < dataSet.length; indexSet++) {
+                        const obj = dataSet[indexSet];
+                        if (obj !== null && obj !== undefined) {
+                            filtered.push(obj);
+                        }
+                    }
+                }
+                return filtered;
+            })
+
+        ) as Observable<R[]>;
+    }
+}
+
+
+export function removeNullish<T, R extends NonNullable<T>>(): OperatorFunction<T[], R[]> {
+    return (source: Observable<T[]>): Observable<R[]> => {
+        return source.pipe(
+            map(objs => {
+                const filtered = [];
+                for (let index = 0; index < objs.length; index++) {
+                    const node = objs[index];
+                    if (node) {
+                        filtered.push(node);
+                    }
+                }
+                return filtered;
+            })
+
+        ) as Observable<R[]>;
     }
 }

@@ -1,14 +1,13 @@
-import { HomieNode } from "./Node";
-import { HomieDatatype, HomieDeviceMode, HomiePropertyAtrributes, HomiePropertyOptions, HomieValuesTypes } from "./model";
-import { HomieItemBase } from "./homie-base";
-import { BehaviorSubject, forkJoin, lastValueFrom, Observable, of, race, Subject, timer } from "rxjs";
-import { defaultIfEmpty, distinctUntilChanged, filter, map, mapTo, pluck, skip, switchMap, switchMapTo, take, takeUntil, tap } from "rxjs/operators";
-import { str2Hm } from "./util";
-import { threadId } from "worker_threads";
+import { HomieElement } from "./HomieElement";
+import { HomieDevice } from "./HomieDevice";
+import { HomieNode } from "./HomieNode";
+import { PropertyPointer, PropertyAttributes, HomieValuesTypes, HomiePropertyOptions, HomieDeviceMode, PropertyDescription, ZERO_STRING } from "./model";
+import { IClientPublishOptions } from "mqtt";
+import { BehaviorSubject, distinctUntilChanged, filter, lastValueFrom, map, Observable, of, race, skip, Subject, switchMap, take, takeUntil, tap, timer } from "rxjs";
 import { MqttSubscription } from "./mqtt";
+import { str2Hm } from "./util";
 
 export const DEFAULT_VALUE_READ_TIMEOUT = 1000;
-
 export interface OnSetEvent {
     property: HomieProperty;
     value: HomieValuesTypes;
@@ -16,21 +15,26 @@ export interface OnSetEvent {
 }
 
 
-const DEFAULT_ATTRS = <HomiePropertyAtrributes>{
-    settable: false,
-    retained: true,
-}
-
 const DEFAULT_OPTIONS = <HomiePropertyOptions>{
     readValueFromMqtt: false,
     readTimeout: DEFAULT_VALUE_READ_TIMEOUT
 }
 
+const DEFAULT_ATTRIBUTES: Partial<PropertyAttributes> = {
+    settable: false,
+    retained: true
+}
 
 
-export class HomieProperty extends HomieItemBase<HomieNode, HomiePropertyAtrributes>  {
 
-    protected options: HomiePropertyOptions;
+export class HomieProperty extends HomieElement<PropertyAttributes, PropertyPointer, PropertyDescription> {
+    public readonly device: HomieDevice;
+    public readonly topic: string;
+    public readonly pointer: PropertyPointer;
+
+    protected set descriptionUpdateNeeded(value: boolean) {
+        this.node.descriptionUpdateNeeded=value;
+    }
 
     // ===========================================================
     // =  Property value
@@ -43,7 +47,7 @@ export class HomieProperty extends HomieItemBase<HomieNode, HomiePropertyAtrribu
     protected _valueObs$ = this._value$.asObservable();
     public readonly value$ = this.attributes$.pipe( // in connection with the retained attribute we return a observable with either 
         // first value skipped (non-retained) or the normal behavioursubject with direct emission (retained)
-        pluck('retained'),
+        map(attrs => attrs.retained),
         distinctUntilChanged(),
         switchMap(retained => {
             if (retained) {
@@ -74,65 +78,49 @@ export class HomieProperty extends HomieItemBase<HomieNode, HomiePropertyAtrribu
         return str2Hm(this.value, this.attributes.datatype);
     }
 
-    public get node() {
-        return this.parent;
+    public get mode(): HomieDeviceMode {
+        return this.device.mode;
     }
 
-    public get device() {
-        return this.node.device;
+
+    constructor(
+        public readonly node: HomieNode,
+        attributes: PropertyAttributes,
+        protected options: HomiePropertyOptions = DEFAULT_OPTIONS
+    ) {
+        super({ ...DEFAULT_ATTRIBUTES, ...attributes });
+        this.device = node.device;
+
+        this.topic = `${node.topic}/${this.id}`;
+        this.pointer = `${node.pointer}/${this.id}`;
     }
 
-    /**
-     * Create a new Homie Property.
-     * @constructor
-     * @param  {HomieNode} node Parent node of the Property. The Property will be automatically added to the nodes property store.
-     * @param  {HomiePropertyAtrributes} attrs Attributes of the property
-     */
-    constructor(node: HomieNode, attrs: HomiePropertyAtrributes, options: HomiePropertyOptions = DEFAULT_OPTIONS) {
-        super(node, { ...DEFAULT_ATTRS, ...attrs });
-        this.options = { ...DEFAULT_OPTIONS, ...options }
-    }
-
-    protected override parseAttribute<T extends keyof HomiePropertyAtrributes>(name: T, rawValue: string): HomiePropertyAtrributes[T] {
-        switch (name) {
-            case 'retained':
-                return (rawValue === undefined ? true : rawValue === 'true') as HomiePropertyAtrributes[T];
-            case 'settable':
-                return (rawValue === 'true') as HomiePropertyAtrributes[T];
-            case 'datatype':
-                return rawValue as HomieDatatype as HomiePropertyAtrributes[T]
-            case 'format':
-            case 'unit':
-            default:
-                return super.parseAttribute(name, rawValue);
+    public getDescription(): PropertyDescription {
+        const { retained, settable, id,  ...rest } = this.attributes;
+        return {
+            ...rest,
+            retained: retained === DEFAULT_ATTRIBUTES.retained ? undefined : false, // omit retained if it has the default value
+            settable: settable === DEFAULT_ATTRIBUTES.settable ? undefined : true // omit settable if it has the default value
         }
     }
 
     public override async onInit() {
         if (this.isInitialized) { return; }
-        await super.onInit();
-        if (this.device.mode === HomieDeviceMode.Device) {
+        const subs = this.subscribeTopics();
+        subs.forEach(sub => sub.activate());
+        if (this.mode === HomieDeviceMode.Device) {
             if (this.options.readValueFromMqtt && this.attributes.retained) {
                 this.log.debug('Attempt to read value from mqtt..');
                 const v = await lastValueFrom(this.readValueFromMqtt$());
                 this._value$.next(v);
+                this._isInitialized = true
             } else {
+                this._isInitialized = true
                 await lastValueFrom(this.publishValue$());
             }
+        } else {
+            this._isInitialized = true
         }
-        this._initialized = true;
-    }
-
-    public override wipe$(keepTags = true, keepMeta = true): Observable<boolean> {
-        const pubs: Observable<boolean>[] = [];
-        pubs.push(super.wipe$(keepTags, keepMeta));
-        if (this.attributes.retained) {
-            pubs.push(this.mqttPublish$(this.id, null, { retain: true, qos: 2 }, true));
-        }
-        return forkJoin(pubs).pipe(
-            defaultIfEmpty([true]), // emit an array with a true element if forkjoin will complete without emitting (this is the case when there are no attributes)
-            map(results => results.indexOf(false) === -1)
-        );
     }
 
     protected readValueFromMqtt$(): Observable<string | undefined> {
@@ -155,14 +143,14 @@ export class HomieProperty extends HomieItemBase<HomieNode, HomiePropertyAtrribu
             valueReadSub.active.pipe(
                 filter(active => active),
                 take(1),
-                switchMap(active => timer(this.options.readTimeout || 0).pipe(
-                    tap(msg => { this.log.debug('Timed out reading value from mqtt!'); }),
-                    mapTo(undefined))))
+                switchMap(_ => timer(this.options.readTimeout || 0).pipe(
+                    tap(_ => { this.log.debug('Timed out reading value from mqtt!'); }),
+                    map(_ => undefined))))
         );
     }
 
-    public override subscribeTopics(): MqttSubscription[] {
-        const subs = super.subscribeTopics();
+    protected subscribeTopics(): MqttSubscription[] {
+        const subs: MqttSubscription[] = [];
         if (this.mode === HomieDeviceMode.Controller) {
             const valueSub = this.subscribe('');
             subs.push(valueSub);
@@ -187,7 +175,7 @@ export class HomieProperty extends HomieItemBase<HomieNode, HomiePropertyAtrribu
                     takeUntil(this.onDestroy$)
                 ).subscribe({
                     next: msg => {
-                        this.log.info(`${this.topic} - Property SET command`);
+                        this.log.verbose(`${this.topic} - Property SET command`);
 
                         const payload = msg.payload.toString();
                         // transform null and undefined values to empty strings
@@ -217,11 +205,11 @@ export class HomieProperty extends HomieItemBase<HomieNode, HomiePropertyAtrribu
     */
     public publishValue$(value?: string, validate = true) {
         if (this.isInitialized) {
-
             const publishValue = ((value === undefined || value === null) && this.attributes.retained) ? this.value : value;
 
             if ((validate && this.validateValue(publishValue)) || !validate) {
-                return this.mqttPublish$(this.id, publishValue, { retain: this.attributes.retained, qos: 2 }, true);
+                this.log.verbose(`Publishing ${publishValue}`);
+                return this.publish$('', publishValue === "" ? ZERO_STRING : publishValue, { retain: this.attributes.retained, qos: 2 }, true);
             }
         }
         return of(true);
@@ -269,7 +257,7 @@ export class HomieProperty extends HomieItemBase<HomieNode, HomiePropertyAtrribu
         }
     }
 
-    public setValue(value: string | undefined | null, onlyIfChanged = false, validate = true) {
+    public async setValue(value: string | undefined | null, onlyIfChanged = false, validate = true) {
         if (value === undefined || value === null) { return; }
 
         if (onlyIfChanged && this.attributes.retained && value === this.value) {
@@ -283,8 +271,24 @@ export class HomieProperty extends HomieItemBase<HomieNode, HomiePropertyAtrribu
         }
         this._value$.next(value);
         if (this.mode === HomieDeviceMode.Device) {
-            this.publishValue$(value, false).subscribe();
+
+            await lastValueFrom(this.publishValue$(value, false));
         }
+    }
+
+
+
+
+
+
+    protected mqttPublish$(path: string, value: string | null | undefined, options: IClientPublishOptions, publishEmpty: boolean): Observable<boolean> {
+        return this.node.publish$(path, value, options, publishEmpty);
+    }
+    protected mqttSubscribe(path: string): MqttSubscription {
+        return this.node.subscribe(path);
+    }
+    protected mqttUnsubscribe(path: string): void {
+        return this.node.unsubscribe(path);
     }
 
 }

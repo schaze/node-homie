@@ -1,7 +1,7 @@
 {
-  "name": "node-homie",
-  "version": "0.9.24",
-  "description": "Typescript implementation of the homie 4.x convention",
+  "name": "node-homie5",
+  "version": "0.5.17",
+  "description": "Typescript implementation of the homie 5.x convention",
   "main": "./lib/cjs/index.js",
   "module": "./lib/es6/index.js",
   "es2015": "../lib/esm/index.js",
@@ -15,17 +15,17 @@
   },
   "scripts": {
     "gulp": "gulp",
-    "build": "gulp prod"
+    "build": "gulp prod",
+    "test": "gulp prod; node  --inspect lib/cjs/tests.js"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/schaze/node-homie.git"
+    "url": "https://gitea.local.schaz.org/smarthome/node-homie5.git"
   },
-  "homepage": "https://github.com/schaze/node-homie#README.md",
+  "homepage": "https://gitea.local.schaz.org/smarthome/node-homie5.git#README.md",
   "files": [
     "lib",
     "src",
-    "homie-base",
     "controller",
     "misc",
     "model",
@@ -73,11 +73,6 @@
       "es2015": "./lib/es6/util/index.js",
       "default": "./lib/esm/util/index.js"
     },
-    "./homie-base": {
-      "node": "./lib/cjs/homie-base/index.js",
-      "es2015": "./lib/es6/homie-base/index.js",
-      "default": "./lib/esm/homie-base/index.js"
-    },
     "./package.json": "./package.json"
   },
   "keywords": [
@@ -87,18 +82,23 @@
     "name": "schaze",
     "email": "schazet@gmail.com"
   },
+  "publishConfig": {
+    "registry": "https://npm.local.schaz.org"
+  },
   "license": "MIT",
   "devDependencies": {
     "@tsconfig/node14": "^1.0.0",
-    "@types/node": "^14.17",
+    "@types/node": "^14",
     "gulp": "~4.0.2",
     "gulp-sourcemaps": "~3.0.0",
     "gulp-typescript": "~5.0.1",
     "merge2": "~1.4.1",
+    "ts-json-schema-generator": "~1.2.0",
     "typescript": "~4.4.4"
   },
   "dependencies": {
-    "mqtt": "~4.2.8",
-    "rxjs": "~7.4"
+    "jsonschema": "~1.4.1",
+    "mqtt": "~4.3.7",
+    "rxjs": "~7.8.0"
   }
 }

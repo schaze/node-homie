@@ -1,22 +1,22 @@
-import { HomieDevice } from "./Device";
+import { HomieDevice } from "./HomieDevice";
 import { Observable } from "rxjs";
 
-import { HomieNode } from "./Node";
-import { HomieProperty } from "./Property";
+import { HomieNode } from "./HomieNode";
+import { HomieProperty } from "./HomieProperty";
 import { DeviceQuery, NodeQuery, PropertyQuery, Query } from "./model/Query.model";
 import { query, queryDevices, queryNodes, queryProperties } from "./Query";
 import { map, shareReplay } from "rxjs/operators";
-import { DictionaryState, DictionaryStore, OnDestroy } from "./misc";
+import { DictionaryStore, OnDestroy } from "./misc";
 import { mergeWatchIndex, mergeWatchList } from "./rx";
 
-import { DeviceSelector, NodeSelector, PropertySelector } from "./model";
+import { DeviceSelector, HomieID, NodeSelector, ObjectMap, PropertySelector } from "./model";
 import { parseDeviceSelector, parseNodeSelector, parsePropertySelector } from "./util";
 import { findDevice, findNode, findProperty, selectDevice, selectNode, selectProperty } from "./Selector";
 import { SimpleLogger } from "./misc/Logger";
 
 export interface IHomieDeviceManager {
-    readonly devices: DictionaryState<HomieDevice>;
-    readonly devices$: Observable<DictionaryState<HomieDevice>>;
+    readonly devices: ObjectMap<HomieID,HomieDevice>;
+    readonly devices$: Observable<ObjectMap<HomieID, HomieDevice>>;
 }
 
 export class HomieDeviceManager implements IHomieDeviceManager, OnDestroy {
@@ -34,26 +34,26 @@ export class HomieDeviceManager implements IHomieDeviceManager, OnDestroy {
         shareReplay(1)
     )
 
-    public nodesList$ = this.devicesList$.pipe(
-        mergeWatchList(item => item.nodesList$),
-        shareReplay(1)
-    )
+    // public nodesList$ = this.devicesList$.pipe(
+    //     mergeWatchList(item => item.nodesList$),
+    //     shareReplay(1)
+    // )
 
-    public nodesIndex$ = this.devicesList$.pipe(
-        mergeWatchIndex(item => item.nodesIndex$),
-        shareReplay(1)
-    )
+    // public nodesIndex$ = this.devicesList$.pipe(
+    //     mergeWatchIndex(item => item.nodesIndex$),
+    //     shareReplay(1)
+    // )
 
 
-    public propertiesList$ = this.devicesList$.pipe(
-        mergeWatchList(item => item.propertiesList$),
-        shareReplay(1)
-    )
+    // public propertiesList$ = this.devicesList$.pipe(
+    //     mergeWatchList(item => item.propertiesList$),
+    //     shareReplay(1)
+    // )
 
-    public propertiesIndex$ = this.devicesList$.pipe(
-        mergeWatchIndex(item => item.propertiesIndex$),
-        shareReplay(1)
-    )
+    // public propertiesIndex$ = this.devicesList$.pipe(
+    //     mergeWatchIndex(item => item.propertiesIndex$),
+    //     shareReplay(1)
+    // )
 
     constructor() {
         this.log = new SimpleLogger(this.constructor.name, 'manager');

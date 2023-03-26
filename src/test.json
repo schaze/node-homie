@@ -1,21 +1,80 @@
 {
-    "id": "cd-stehlampe-papier",
-    "name": "cd-stehlampe-papier",
-    "compounds": {
-        "on": {
-            "id": "on",
-            "datatype": "boolean",
-            "aggregateFunction": "or",
-            "format": "",
-            "unit": "",
-            "settable": true,
-            "retained": true,
-            "mappings": {},
-            "members": [
-                "wz_stehlampe_papier_1/state/on",
-                "wz_stehlampe_papier_2/state/on",
-                "wz_stehlampe_papier_3/state/on"
-            ]
+    "homie": "5.0",
+    "version": 0,
+    "nodes": {
+        "switch": {
+            "properties": {
+                "text": {
+                    "datatype": "string",
+                    "retained": true,
+                    "settable": true
+                },
+                "state": {
+                    "name": "On\/Off state",
+                    "settable": true,
+                    "datatype": "boolean"
+                },
+                "action": {
+                    "retained": false,
+                    "name": "Change state",
+                    "settable": true,
+                    "format": "toggle",
+                    "datatype": "enum"
+                }
+            },
+            "name": "switch"
+        },
+        "dimmer": {
+            "properties": {
+                "brigthness": {
+                    "name": "Brightness",
+                    "settable": true,
+                    "unit": "%",
+                    "datatype": "integer"
+                },
+                "action": {
+                    "retained": false,
+                    "name": "Change brighntess",
+                    "settable": true,
+                    "format": "brighter,darker",
+                    "datatype": "enum"
+                }
+            },
+            "name": "dimmer"
+        },
+        "scenes": {
+            "properties": {
+                "recall":                {
+                    "name": "Recall a scene",
+                    "retained": false,
+                    "settable": true,
+                    "datatype": "enum"
+                }
+            },
+            "name": "scenes"
+        },
+        "colorlight": {
+            "properties": {
+                "color":                {
+                    "name": "Color",
+                    "settable": true,
+                    "format": "rgb",
+                    "datatype": "color"
+                },
+                "color-temperature": {
+                    "name": "Color Temperature",
+                    "settable": true,
+                    "format": "153:555",
+                    "unit": "Mired",
+                    "datatype": "integer"
+                }
+            },
+            "name": "colorlight"
         }
-    }
+    },
+    "children": ["c2", "c1", "c3"],
+    "extensions": [
+        "eu.epnw.meta:1.1.0:4.0"
+    ],
+    "name": "wz_stehlampe_papier"
 }

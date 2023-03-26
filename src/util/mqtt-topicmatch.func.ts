@@ -15,3 +15,7 @@ export function mqttTopicMatch(filter: string, topic: string | string[]): boolea
 
     return length === topicArray.length;
 }
+
+export function isMqttWildcardTopic(topic: string): boolean{
+    return topic.includes('+') || topic.includes('#');
+}

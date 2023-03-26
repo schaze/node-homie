@@ -8,10 +8,9 @@
 
 
 import { Observable } from "rxjs";
-import { HomieNode, HomieProperty } from "..";
-import { HomieDevice } from "../Device";
+import { HomieNode, HomieProperty, HomieDevice } from "..";
 import { HomieID } from "./Base.model";
-import { DevicePointer, isDevicePointer, NodePointer, isNodePointer, PropertyPointer, isPropertyPointer } from "./Core.model";
+import { DevicePointer, isDevicePointer, NodePointer, isNodePointer, PropertyPointer, isPropertyPointer } from "./Base.model";
 
 export type DeviceSelector = DevicePointer | DeviceDesignator;
 export function isDeviceSelector(selector: unknown): selector is DeviceSelector {

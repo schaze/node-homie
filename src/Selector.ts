@@ -1,16 +1,15 @@
-import { HomieDevice } from "./Device";
+import { HomieDevice } from "./HomieDevice";
 import { asyncScheduler, Observable } from "rxjs";
 import { distinctUntilChanged, throttleTime } from "rxjs/operators";
-import { HomieNode } from "./Node";
-import { HomieProperty } from "./Property";
+import { HomieNode } from "./HomieNode";
+import { HomieProperty } from "./HomieProperty";
 import {
     mandatoryPluck, mandatoryPluckSwitchMap, mandatorySwitchMap, optionalPluck, optionalPluckSwitchMap, optionalSwitchMap
 } from "./rx";
 import {
-    DeviceSelector, NodeSelector, PropertySelector
+    DeviceSelector, NodeSelector, ObjectMap, PropertySelector
 } from "./model";
 import { parseDeviceSelector, parseNodeSelector, parsePropertySelector } from "./util";
-import { DictionaryState } from "./misc";
 
 
 /**
@@ -22,7 +21,7 @@ import { DictionaryState } from "./misc";
  * @param distinct 
  * @returns Obeservable of the device or of undefined if not found
  */
-export function findDevice(devices$: Observable<DictionaryState<HomieDevice>>, deviceSelector: DeviceSelector, debounce = 10, distinct = true): Observable<HomieDevice | undefined> {
+export function findDevice(devices$: Observable<ObjectMap<string,HomieDevice>>, deviceSelector: DeviceSelector, debounce = 10, distinct = true): Observable<HomieDevice | undefined> {
     const designator = parseDeviceSelector(deviceSelector);
     let resObs: Observable<HomieDevice | undefined>;
     if (debounce > 0) {
@@ -48,7 +47,7 @@ export function findDevice(devices$: Observable<DictionaryState<HomieDevice>>, d
  * @param distinct 
  * @returns Observable of a devices
  */
-export function selectDevice(devices$: Observable<DictionaryState<HomieDevice>>, deviceSelector: DeviceSelector, debounce = 10, distinct = true): Observable<HomieDevice> {
+export function selectDevice(devices$: Observable<ObjectMap<string,HomieDevice>>, deviceSelector: DeviceSelector, debounce = 10, distinct = true): Observable<HomieDevice> {
     const designator = parseDeviceSelector(deviceSelector);
     let resObs: Observable<HomieDevice>;
     if (debounce > 0) {
@@ -67,7 +66,7 @@ export function selectDevice(devices$: Observable<DictionaryState<HomieDevice>>,
 
 
 
-export function findNode(devices$: Observable<DictionaryState<HomieDevice>>, nodeSelector: NodeSelector, debounce = 10, distinct = true): Observable<HomieNode | undefined> {
+export function findNode(devices$: Observable<ObjectMap<string,HomieDevice>>, nodeSelector: NodeSelector, debounce = 10, distinct = true): Observable<HomieNode | undefined> {
     const designator = parseNodeSelector(nodeSelector);
     let resObs: Observable<HomieNode | undefined>;
     if (debounce > 0) {
@@ -90,7 +89,7 @@ export function findNode(devices$: Observable<DictionaryState<HomieDevice>>, nod
 
 
 
-export function selectNode(devices$: Observable<DictionaryState<HomieDevice>>, nodeSelector: NodeSelector, debounce = 10, distinct = true): Observable<HomieNode> {
+export function selectNode(devices$: Observable<ObjectMap<string,HomieDevice>>, nodeSelector: NodeSelector, debounce = 10, distinct = true): Observable<HomieNode> {
     const designator = parseNodeSelector(nodeSelector);
     let resObs: Observable<HomieNode>;
     if (debounce > 0) {
@@ -113,7 +112,7 @@ export function selectNode(devices$: Observable<DictionaryState<HomieDevice>>, n
 
 
 
-export function findProperty(devices$: Observable<DictionaryState<HomieDevice>>, propertySelector: PropertySelector, debounce = 10, distinct = true): Observable<HomieProperty | undefined> {
+export function findProperty(devices$: Observable<ObjectMap<string,HomieDevice>>, propertySelector: PropertySelector, debounce = 10, distinct = true): Observable<HomieProperty | undefined> {
     const designator = parsePropertySelector(propertySelector);
     let resObs: Observable<HomieProperty | undefined>;
     if (debounce > 0) {
@@ -135,7 +134,7 @@ export function findProperty(devices$: Observable<DictionaryState<HomieDevice>>,
     return distinct ? resObs.pipe(distinctUntilChanged()) : resObs;
 }
 
-export function selectProperty(devices$: Observable<DictionaryState<HomieDevice>>, propertySelector: PropertySelector, debounce = 10, distinct = true): Observable<HomieProperty> {
+export function selectProperty(devices$: Observable<ObjectMap<string,HomieDevice>>, propertySelector: PropertySelector, debounce = 10, distinct = true): Observable<HomieProperty> {
     const designator = parsePropertySelector(propertySelector);
     let resObs: Observable<HomieProperty>;
     if (debounce > 0) {
@@ -157,17 +156,17 @@ export function selectProperty(devices$: Observable<DictionaryState<HomieDevice>
     return distinct ? resObs.pipe(distinctUntilChanged()) : resObs;
 }
 
-export function makeDeviceSelector<R>(devices$: Observable<DictionaryState<HomieDevice>>, selector: DeviceSelector, predicate: (v: HomieDevice) => Observable<R>, debounce?: number, distinct?: boolean): Observable<R> {
+export function makeDeviceSelector<R>(devices$: Observable<ObjectMap<string,HomieDevice>>, selector: DeviceSelector, predicate: (v: HomieDevice) => Observable<R>, debounce?: number, distinct?: boolean): Observable<R> {
     const resObj = selectDevice(devices$, selector, debounce, distinct).pipe(mandatorySwitchMap(predicate))
     return distinct ? resObj.pipe(distinctUntilChanged()) : resObj;
 }
 
-export function makeNodeSelector<R>(devices$: Observable<DictionaryState<HomieDevice>>, selector: NodeSelector, predicate: (v: HomieNode) => Observable<R>, debounce?: number, distinct?: boolean): Observable<R> {
+export function makeNodeSelector<R>(devices$: Observable<ObjectMap<string,HomieDevice>>, selector: NodeSelector, predicate: (v: HomieNode) => Observable<R>, debounce?: number, distinct?: boolean): Observable<R> {
     let resObs = selectNode(devices$, selector, debounce, distinct).pipe(mandatorySwitchMap(predicate));
     return distinct ? resObs.pipe(distinctUntilChanged()) : resObs;
 }
 
-export function makePropertySelector<R>(devices$: Observable<DictionaryState<HomieDevice>>, selector: PropertySelector, predicate: (v: HomieProperty) => Observable<R>, mandatory?: boolean, debounce?: number, distinct?: boolean): Observable<R> {
+export function makePropertySelector<R>(devices$: Observable<ObjectMap<string,HomieDevice>>, selector: PropertySelector, predicate: (v: HomieProperty) => Observable<R>, mandatory?: boolean, debounce?: number, distinct?: boolean): Observable<R> {
     let resObs = selectProperty(devices$, selector, debounce, distinct).pipe(mandatorySwitchMap(predicate));
     return distinct ? resObs.pipe(distinctUntilChanged()) : resObs;
 }
