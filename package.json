@@ -1,5 +1,5 @@
 {
-  "name": "node-homie5",
+  "name": "node-homie",
   "version": "0.0.0",
   "description": "Typescript implementation of the homie 5.x convention",
   "main": "./lib/cjs/index.js",
