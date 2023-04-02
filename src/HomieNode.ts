@@ -5,7 +5,7 @@ import { DictionaryStore } from "./misc";
 import { HomieID, NodeDescription, NodePointer, notNullish, ObjectMap, PropertyDescription } from "./model";
 import { NodeAttributes } from "./model";
 import { isObjectEmpty, mapObject } from "./util";
-import { Observable } from "rxjs";
+import { defaultIfEmpty, forkJoin, map, Observable } from "rxjs";
 import { IClientPublishOptions } from "mqtt";
 import { MqttSubscription } from "./mqtt";
 
@@ -172,6 +172,17 @@ export class HomieNode extends HomieElement<NodeAttributes, NodePointer, NodeDes
     }
     protected mqttUnsubscribe(path: string): void {
         return this.device.unsubscribe(path);
+    }
+
+    public override wipe$(): Observable<boolean> {
+        return forkJoin([
+            ...Object.entries(this.properties).map(([_, property]) => {
+                return property.wipe$();
+            })]
+        ).pipe(
+            defaultIfEmpty([true]), // emit an array with a true element if forkjoin will complete without emitting (this is the case when there are no attributes)
+            map(results => results.indexOf(false) === -1)
+        );
     }
 
     public override async onDestroy() {

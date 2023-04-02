@@ -1,11 +1,11 @@
 import { BehaviorSubject, Observable } from "rxjs";
-import { LifecycleBase } from "./misc";
+import { LifecycleBase, SimpleLogger } from "./misc";
 import { RXObjectAttributes } from "./model";
 import { arraysAreEqual } from "./util";
 
 
 export class RXObject<TAttributes extends RXObjectAttributes = RXObjectAttributes> extends LifecycleBase {
-
+    
     protected readonly _attributes$: BehaviorSubject<TAttributes>;
     public readonly attributes$: Observable<TAttributes>;
     protected set attributes(value: TAttributes) {

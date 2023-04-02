@@ -1,10 +1,23 @@
-import { DeviceAttributes, DeviceAttributesImpl, DeviceDescriptionBase, DeviceState, HomieID, HomieVersion, NodeAttributes, NodeAttributesImpl, ObjectMap, PropertyAttributes, PropertyAttributesImpl } from "./Base.model";
+import { DeviceDescriptionBase, HomieID, NodeAttributesImpl, ObjectMap, PropertyAttributesImpl } from "./Base.model";
 
-
+/** 
+ * @title PropertyDescription 
+ * @description Data attributes of property
+ * @examples 
+ * ```json 
+ * { 
+ *      "datatype": "integer",
+ *      "name": "First Property",
+ *      "format": "1:8",
+ *      "settable": true,
+ *      "retained": true,
+ *      "unit": "#"
+ * }
+ * ```
+ * */
 export interface PropertyDescription extends PropertyAttributesImpl {
 
 }
-
 
 /** 
  * @title NodeDescription 
@@ -28,7 +41,7 @@ export interface PropertyDescription extends PropertyAttributesImpl {
  * 
 */
 export interface NodeDescription extends NodeAttributesImpl {
-    /** @title Array of Properties the Node exposes.   */
+    /** @title Object of Properties the Node exposes.  */
     properties?: ObjectMap<HomieID, PropertyDescription>;
 }
 
@@ -63,6 +76,7 @@ export interface NodeDescription extends NodeAttributesImpl {
  * ```
  * */
 export interface DeviceDescription extends DeviceDescriptionBase {
+    /** @title Object of nodes the device exposes. */
     nodes?: ObjectMap<HomieID, NodeDescription>;
 }
 

@@ -1,0 +1,146 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Friendly name of the device"
+    },
+    "version": {
+      "type": "number",
+      "description": "Version of the devicedescription"
+    },
+    "homie": {
+      "$ref": "#/definitions/HomieVersion",
+      "description": "Homie version of the device"
+    },
+    "children": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/HomieID"
+      },
+      "description": "Array of IDs of child devices"
+    },
+    "root": {
+      "$ref": "#/definitions/HomieID",
+      "description": "ID of the root parent device. Required if the device is not the root device, must be omitted otherwise."
+    },
+    "parent": {
+      "$ref": "#/definitions/HomieID",
+      "description": "ID of the parent device. Defaults to the root ID. Required if the parent is NOT the root device."
+    },
+    "extensions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "Array of supported extensions."
+    },
+    "nodes": {
+      "title": "Nodes the device exposes.",
+      "patternProperties": {
+        "^(?!\\-)[a-z0-9\\-]+(?<!\\-)$": {
+          "$ref": "#/definitions/NodeDescription"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "homie",
+    "version"
+  ],
+  "title": "DeviceDescription",
+  "description": "An instance of a physical piece of hardware is called a device. For example, a temperature sensor or a light bulb.",
+  "examples": "```json\n{\n  \"homie\": \"5.0\",\n  \"version\": 8,\n  \"name\": \"device name\",\n  \"root\": \"id of root device\",\n  \"parent\": \"id of parent device\", \n  \"children\": [\"ids of child devices\", \"ids of child devices\"],\n  \"extensions\": [\"extention-identifier\", \"extention-identifier2\"],\n  \"nodes\": {\n      \"node-id\": {\n          \"name\": \"node name\",\n          \"properties\": {\n              \"prop-id\": {\n                  \"name\": \"property name\",\n                  \"datatype\": \"boolean\",\n                  \"retained\": true,\n                  \"settable\": true,\n                  \"unit\": \"\",\n                  \"format\": \"\"\n              }\n          }\n      }\n  }\n```",
+  "definitions": {
+    "HomieVersion": {
+      "type": "string",
+      "title": "HomieVersion",
+      "description": "The implemented Homie convention version, without the \"patch\" level. So the format is \"5.x\", where the 'x' is the minor version.",
+      "pattern": "^5.([0-9]+)$"
+    },
+    "HomieID": {
+      "type": "string",
+      "title": "HomieID",
+      "description": "A MQTT topic consists of one or more topic levels, separated by the slash character (/). A topic level ID MAY ONLY contain lowercase letters from a to z, numbers from 0 to 9 as well as the hyphen character (-).\nA topic level ID MUST NOT start or end with a hyphen (-). The special character $ is used and reserved for Homie attributes.",
+      "pattern": "^(?!\\\\-)[a-z0-9\\\\-]+(?<!\\\\-)$"
+    },
+    "NodeDescription": {
+      "title": "NodeDescription",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Friendly name of the node"
+        },
+        "type": {
+          "type": "string"
+        },
+        "properties": {
+          "title": "Properties the Node exposes.",
+          "patternProperties": {
+            "^(?!\\-)[a-z0-9\\-]+(?<!\\-)$": {
+              "$ref": "#/definitions/PropertyDescription"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false,
+      "description": "A device can expose multiple nodes. Nodes are independent or logically separable part of a device. For example, a sensor device may expose several nodes for temperature, humidity or light sensing purposes.",
+      "examples": "```json\n {\n    \"name\": \"node name\",\n    \"properties\": {\n        \"prop-id\": {\n            \"name\": \"property name\",\n            \"datatype\": \"boolean\",\n            \"retained\": true,\n            \"settable\": true,\n            \"unit\": \"\",\n            \"format\": \"\"\n        }\n    }\n }\n```"
+    },
+    "PropertyDescription": {
+      "title": "PropertyDescription",
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A node can hold multiple properties. Properties express single values or functions exposed by the device. For example the on/off state of a light bulb or it's current dimm level.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Friendly name of the property"
+        },
+        "datatype": {
+          "$ref": "#/definitions/HomieDatatype",
+          "description": "The data type. Any of the following values: \"integer\", \"float\", \"boolean\", \"string\", \"enum\", \"color\", \"datetime\", \"duration\"."
+        },
+        "format": {
+          "type": "string",
+          "description": "Specifies restrictions or options for the given data type."
+        },
+        "settable": {
+          "type": "boolean",
+          "description": "Specifies if the property value can be set (true) or if it is read-only(false).",
+          "default": false
+        },
+        "retained": {
+          "type": "boolean",
+          "description": "Whether the Property value is retained (also published as retained value on mqtt).",
+          "default": true
+        },
+        "unit": {
+          "type": "string",
+          "description": "Unit of this property, e.g. %, °C, °F, Hz,..."
+        }
+      },
+      "required": [
+        "datatype"
+      ]
+    },
+    "HomieDatatype": {
+      "type": "string",
+      "enum": [
+        "integer",
+        "float",
+        "boolean",
+        "string",
+        "enum",
+        "color",
+        "datetime",
+        "duration"
+      ]
+    }
+  }
+}

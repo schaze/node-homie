@@ -19,15 +19,18 @@ const fs = require("fs");
 const path = require("path");
 
 const JSONS_CONVERSIONS = [
-  {
-    source: 'src/model/DeviceDescription.model.ts',
-    type: 'DeviceDescription',
-    output: 'DeviceDescription.Schema.json',
-    defaultCfg: { encodeRefs: false, topRef:false},
-    // schemaPostAction: function (schema) {
-    //   schema.definitions['PropertyPath']['pattern'] = "^(?!\\-)[a-z0-9\\-]+(?<!\\-)\/(?!\\-)[a-z0-9\\-]+(?<!\\-)\/(?!\\-)[a-z0-9\\-]+(?<!\\-)$";
-    // }
-  }
+  // {
+  //   source: 'src/model/DeviceDescription.model.ts',
+  //   type: 'DeviceDescription',
+  //   output: 'DeviceDescription.Schema.json',
+  //   defaultCfg: { encodeRefs: false, topRef:false, extraTags: [
+  //     'patternProperties'
+  //   ]},
+    
+  //   // schemaPostAction: function (schema) {
+  //   //   schema.definitions['PropertyPath']['pattern'] = "^(?!\\-)[a-z0-9\\-]+(?<!\\-)\/(?!\\-)[a-z0-9\\-]+(?<!\\-)\/(?!\\-)[a-z0-9\\-]+(?<!\\-)$";
+  //   // }
+  // }
 ]
 
 

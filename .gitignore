@@ -4,3 +4,4 @@ sessions
 lib
 lib.browser/
 devEnv.sh
+.npmrc

@@ -33,7 +33,7 @@ export class HomieProperty extends HomieElement<PropertyAttributes, PropertyPoin
     public readonly pointer: PropertyPointer;
 
     protected set descriptionUpdateNeeded(value: boolean) {
-        this.node.descriptionUpdateNeeded=value;
+        this.node.descriptionUpdateNeeded = value;
     }
 
     // ===========================================================
@@ -96,7 +96,7 @@ export class HomieProperty extends HomieElement<PropertyAttributes, PropertyPoin
     }
 
     public getDescription(): PropertyDescription {
-        const { retained, settable, id,  ...rest } = this.attributes;
+        const { retained, settable, id, ...rest } = this.attributes;
         return {
             ...rest,
             retained: retained === DEFAULT_ATTRIBUTES.retained ? undefined : false, // omit retained if it has the default value
@@ -289,6 +289,13 @@ export class HomieProperty extends HomieElement<PropertyAttributes, PropertyPoin
     }
     protected mqttUnsubscribe(path: string): void {
         return this.node.unsubscribe(path);
+    }
+
+    public override wipe$(): Observable<boolean> {
+        if (this.isInitialized && this.attributes.retained) {
+            return this.mqttPublish$(this.id, null, { retain: true, qos: 2 }, true);
+        }
+        return of(true);
     }
 
 }

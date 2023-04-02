@@ -60,6 +60,8 @@ export abstract class HomieElement<T extends BaseAttributes, POINTER extends Hom
 
     protected abstract mqttUnsubscribe(path: string): void;
 
+    public abstract wipe$(): Observable<boolean>;
+
     public unsubscribe(path: string) {
         const p = (!!path && path.length > 0) ? `${this.id}/${path}` : `${this.id}`;
         this.mqttUnsubscribe(p);

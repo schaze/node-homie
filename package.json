@@ -73,7 +73,8 @@
       "es2015": "./lib/es6/util/index.js",
       "default": "./lib/esm/util/index.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./DeviceDescription.Schema.json": "./lib/cjs/DeviceDescription.Schema.json"
   },
   "keywords": [
     "homie"

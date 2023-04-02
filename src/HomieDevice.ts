@@ -1,7 +1,7 @@
 import { stat } from "fs";
 import { Validator } from "jsonschema";
 import { IClientPublishOptions } from "mqtt";
-import { BehaviorSubject, catchError, combineLatest, filter, lastValueFrom, map, Observable, of, startWith, switchMap, takeUntil, withLatestFrom } from "rxjs";
+import { BehaviorSubject, catchError, combineLatest, defaultIfEmpty, filter, forkJoin, lastValueFrom, map, Observable, of, startWith, switchMap, takeUntil, withLatestFrom } from "rxjs";
 import { HomieElement } from "./HomieElement";
 import { HomieNode } from "./HomieNode";
 import { DictionaryStore } from "./misc";
@@ -13,7 +13,7 @@ import { isObjectEmpty, makeV5BaseTopic, mapObject } from "./util";
 export const HD_ATTR_STATE = '$state';
 export const HD_ATTR_DESCRIPTION = '$description';
 
-const schema = require('./DeviceDescription.Schema.json');
+export const DeviceDescriptionSchema = require('./DeviceDescription.Schema.json');
 
 
 
@@ -276,7 +276,7 @@ export class HomieDevice extends HomieElement<DeviceAttributes, DevicePointer, D
             descSub.messages$.pipe(takeUntil(this.onDestroy$)).subscribe({
                 next: msg => {
                     const description = msg.payload.toString();
-                    if (description !== undefined && description !== null) {
+                    if (description !== undefined && description !== null && description !== "") {
                         try {
                             this.updateFromDescription(JSON.parse(description));
                         } catch (error) {
@@ -311,7 +311,7 @@ export class HomieDevice extends HomieElement<DeviceAttributes, DevicePointer, D
                 takeUntil(this.onDestroy$),
             ).subscribe({
                 next: msg => {
-                    
+
                     const rootState = msg.payload.toString();
                     if (isDeviceState(rootState)) {
                         // this.log.info(`RootState received: ${rootState}`);
@@ -479,7 +479,7 @@ export class HomieDevice extends HomieElement<DeviceAttributes, DevicePointer, D
 
 
     protected validateDescription(description: DeviceDescription): boolean {
-        const result = this.validator.validate(description, schema, { nestedErrors: true })
+        const result = this.validator.validate(description, DeviceDescriptionSchema, { nestedErrors: true })
         if (!result.valid) {
             result.errors.forEach(error => {
                 this.log.error(`Error parsing input: ${error.toString()}`);
@@ -488,6 +488,23 @@ export class HomieDevice extends HomieElement<DeviceAttributes, DevicePointer, D
         }
         return true;
     }
+
+    public override wipe$(): Observable<boolean> {
+        if (this.isInitialized) {
+            return forkJoin([
+                this.publish$(HD_ATTR_STATE, null, { retain: true, qos: 2 }, true),
+                this.publish$(HD_ATTR_DESCRIPTION, null, { retain: true, qos: 2 }, true),
+                ...Object.values(this.nodes).map(node => {
+                    return node.wipe$();
+                })]
+            ).pipe(
+                defaultIfEmpty([true]), // emit an array with a true element if forkjoin will complete without emitting (this is the case when there are no attributes)
+                map(results => results.indexOf(false) === -1)
+            );
+        }
+        return of(true);
+    }
+
 
     public override async onDestroy() {
         await super.onDestroy();
