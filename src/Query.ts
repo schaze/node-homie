@@ -33,7 +33,7 @@ export function queryRXObjects<TObj extends RXObject<TAttribute>, TAttribute ext
                 objAttrs$.push(obj.attributes$.pipe(
                     map(attrs => {
                         // console.log(`Evaluate:`, attrs, ' ==> ', query);
-                        if ((query && evaluateObjectCondition(attrs, query, idAttr)) || !query) {
+                        if (((query !== null && query !== undefined) && evaluateObjectCondition(attrs, query, idAttr)) || (query === null || query === undefined)) {
                             return obj;
                         } else {
                             return null;

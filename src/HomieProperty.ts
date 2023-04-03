@@ -4,7 +4,7 @@ import { HomieNode } from "./HomieNode";
 import { PropertyPointer, PropertyAttributes, HomieValuesTypes, HomiePropertyOptions, HomieDeviceMode, PropertyDescription, ZERO_STRING } from "./model";
 import { IClientPublishOptions } from "mqtt";
 import { BehaviorSubject, distinctUntilChanged, filter, lastValueFrom, map, Observable, of, race, skip, Subject, switchMap, take, takeUntil, tap, timer } from "rxjs";
-import { MqttSubscription } from "./mqtt";
+import { MqttMessage, MqttSubscription } from "./mqtt";
 import { str2Hm } from "./util";
 
 export const DEFAULT_VALUE_READ_TIMEOUT = 1000;
@@ -31,6 +31,8 @@ export class HomieProperty extends HomieElement<PropertyAttributes, PropertyPoin
     public readonly device: HomieDevice;
     public readonly topic: string;
     public readonly pointer: PropertyPointer;
+
+    setsub!: MqttSubscription;
 
     protected set descriptionUpdateNeeded(value: boolean) {
         this.node.descriptionUpdateNeeded = value;
@@ -106,8 +108,9 @@ export class HomieProperty extends HomieElement<PropertyAttributes, PropertyPoin
 
     public override async onInit() {
         if (this.isInitialized) { return; }
-        const subs = this.subscribeTopics();
-        subs.forEach(sub => sub.activate());
+        this.subscribeTopics();
+
+
         if (this.mode === HomieDeviceMode.Device) {
             if (this.options.readValueFromMqtt && this.attributes.retained) {
                 this.log.debug('Attempt to read value from mqtt..');
@@ -124,8 +127,8 @@ export class HomieProperty extends HomieElement<PropertyAttributes, PropertyPoin
     }
 
     protected readValueFromMqtt$(): Observable<string | undefined> {
-        const valueReadSub = this.subscribe('');
-        const valueRead$ = valueReadSub.messages$.pipe(
+        // const valueReadSub = this.subscribe('');
+        const valueRead$ = this.subscribe('', this.attributes.retained).pipe(
             takeUntil(this.onDestroy$),
             filter(msg => msg.packet.retain),
             take(1),
@@ -137,41 +140,32 @@ export class HomieProperty extends HomieElement<PropertyAttributes, PropertyPoin
             }),
 
         );
-        valueReadSub.activate();
+        // valueReadSub.activate();
         return race(
             valueRead$,
-            valueReadSub.active.pipe(
-                filter(active => active),
-                take(1),
-                switchMap(_ => timer(this.options.readTimeout || 0).pipe(
-                    tap(_ => { this.log.debug('Timed out reading value from mqtt!'); }),
-                    map(_ => undefined))))
+            // this.device.c
+            // valueReadSub.active.pipe(
+            //     filter(active => active),
+            //     take(1),
+            //     switchMap(_ => timer(this.options.readTimeout || 0).pipe(
+            //         tap(_ => { this.log.debug('Timed out reading value from mqtt!'); }),
+            //         map(_ => undefined))))
         );
     }
 
-    protected subscribeTopics(): MqttSubscription[] {
-        const subs: MqttSubscription[] = [];
+    protected subscribeTopics() {
         if (this.mode === HomieDeviceMode.Controller) {
-            const valueSub = this.subscribe('');
-            subs.push(valueSub);
-
-            valueSub.messages$.pipe(takeUntil(this.onDestroy$)).subscribe({
+            const valueSub = this.subscribe('').pipe(takeUntil(this.onDestroy$)).subscribe({
                 next: msg => {
                     const payload = msg.payload.toString();
                     // transform null and undefined values to empty strings
                     const value = (payload === null || payload === undefined) ? "" : payload;
                     this.setValue(value, false, false);
-                },
-                complete: () => {
-                    this.unsubscribe('');
                 }
             });
         } else if (this.mode === HomieDeviceMode.Device) {
             if (this.attributes.settable) {
-                const setSub = this.subscribe('set');
-                subs.push(setSub);
-
-                setSub.messages$.pipe(
+                const setSub = this.subscribe('set').pipe(
                     takeUntil(this.onDestroy$)
                 ).subscribe({
                     next: msg => {
@@ -185,7 +179,6 @@ export class HomieProperty extends HomieElement<PropertyAttributes, PropertyPoin
                 });
             }
         }
-        return subs;
     }
 
     /** 
@@ -284,11 +277,8 @@ export class HomieProperty extends HomieElement<PropertyAttributes, PropertyPoin
     protected mqttPublish$(path: string, value: string | null | undefined, options: IClientPublishOptions, publishEmpty: boolean): Observable<boolean> {
         return this.node.publish$(path, value, options, publishEmpty);
     }
-    protected mqttSubscribe(path: string): MqttSubscription {
-        return this.node.subscribe(path);
-    }
-    protected mqttUnsubscribe(path: string): void {
-        return this.node.unsubscribe(path);
+    protected mqttSubscribe(path: string, retained: boolean = false): Observable<MqttMessage> {
+        return this.node.subscribe(path, retained);
     }
 
     public override wipe$(): Observable<boolean> {

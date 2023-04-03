@@ -2,7 +2,7 @@ import { IClientPublishOptions } from "mqtt";
 import { Observable } from "rxjs";
 import { SimpleLogger } from "./misc";
 import { HomieElementDescription, HomieElementPointer, HomieID, isHomieID, BaseAttributes } from "./model";
-import { MqttSubscription } from "./mqtt";
+import { MqttMessage, MqttSubscription } from "./mqtt";
 import { RXObject } from "./RXObject";
 
 export abstract class HomieElement<T extends BaseAttributes, POINTER extends HomieElementPointer, DESC extends HomieElementDescription> extends RXObject<T> {
@@ -51,21 +51,21 @@ export abstract class HomieElement<T extends BaseAttributes, POINTER extends Hom
 
     }
 
-    protected abstract mqttSubscribe(path: string): MqttSubscription;
+    protected abstract mqttSubscribe(path: string, retained: boolean): Observable<MqttMessage>;
 
-    public subscribe(path: string): MqttSubscription {
+    public subscribe(path: string, retained: boolean = false): Observable<MqttMessage> {
         const p = (!!path && path.length > 0) ? `${this.id}/${path}` : `${this.id}`;
-        return this.mqttSubscribe(p);
+        return this.mqttSubscribe(p, retained);
     }
 
-    protected abstract mqttUnsubscribe(path: string): void;
+    // protected abstract mqttUnsubscribe(path: string): void;
 
     public abstract wipe$(): Observable<boolean>;
 
-    public unsubscribe(path: string) {
-        const p = (!!path && path.length > 0) ? `${this.id}/${path}` : `${this.id}`;
-        this.mqttUnsubscribe(p);
-    }
+    // public unsubscribe(path: string) {
+    //     const p = (!!path && path.length > 0) ? `${this.id}/${path}` : `${this.id}`;
+    //     this.mqttUnsubscribe(p);
+    // }
 
     public override async onDestroy(): Promise<void> {
         await super.onDestroy();

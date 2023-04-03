@@ -1,3 +1,8 @@
+import { LogLevels, SimpleLogger } from './misc';
+
+SimpleLogger.loglevel = LogLevels.debug;
+SimpleLogger.domain = 'node-homie-test';
+
 import { distinctUntilChanged, filter, map, Subject, switchMap, takeUntil } from "rxjs";
 import { DeviceDiscovery } from "./DeviceDiscovery";
 import { HomieDeviceManager } from "./DeviceManager";
@@ -61,16 +66,28 @@ async function test_Publish() {
 
     console.log(`${!!"z"} ==> ${ZERO_STRING.length}`)
 
-    const device = HomieDevice.fromDescription('test-device', desc, {
+    // const device = HomieDevice.fromDescription('test-device', desc, {
+    //     url: process.env['MQTT_URL']!,
+    //     topicRoot: process.env['MQTT_TOPIC_ROOT'] || 'homie5-dev',
+    //     username: process.env['MQTT_USERNAME'],
+    //     password: process.env['MQTT_PASSWORD'],
+    // }, HomieDeviceMode.Device
+    // )
+    const device = new HomieDevice({id: 'test-device'},{
         url: process.env['MQTT_URL']!,
-        topicRoot: process.env['MQTT_TOPICROOT'] || 'homie5-dev',
+        topicRoot: process.env['MQTT_TOPIC_ROOT'] || 'homie5-dev',
         username: process.env['MQTT_USERNAME'],
         password: process.env['MQTT_PASSWORD'],
-    }, HomieDeviceMode.Device
-    )
+    } );
+
+
+
+    await device.updateFromDescription(desc);
+
+    await device.onInit();
     // device.nodes['switch'].properties['text'].descriptionUpdateNeeded
 
-    device.nodes$.pipe(node$('switch'), property$('text'), onSetMessage$()).pipe(takeUntil(device.onDestroy$)).subscribe({
+    device.nodes$.pipe(node$('switch'), property$('state'), onSetMessage$()).pipe(takeUntil(device.onDestroy$)).subscribe({
         next: msg => {
             msg.property.value = msg.valueStr;
         }
@@ -95,7 +112,7 @@ async function test_Publish() {
 async function test_Discover() {
     const d = new HomieDevice({id: "hi"},{
         url: process.env['MQTT_URL']!,
-        topicRoot: process.env['MQTT_TOPICROOT'] || 'homie5-dev',
+        topicRoot: process.env['MQTT_TOPIC_ROOT'] || 'homie5-dev',
         username: process.env['MQTT_USERNAME'],
         password: process.env['MQTT_PASSWORD'],
     } );
@@ -103,7 +120,7 @@ async function test_Discover() {
 
     const sharedMqtt = new RxMqtt({
         url: process.env['MQTT_URL']!,
-        topicRoot: process.env['MQTT_TOPICROOT'] || 'homie5-dev',
+        topicRoot: process.env['MQTT_TOPIC_ROOT'] || 'homie5-dev',
         username: process.env['MQTT_USERNAME'],
         password: process.env['MQTT_PASSWORD'],
     })
@@ -111,7 +128,7 @@ async function test_Discover() {
 
     const discovery = new DeviceDiscovery({
         url: process.env['MQTT_URL']!,
-        topicRoot: process.env['MQTT_TOPICROOT'] || 'homie5-dev',
+        topicRoot: process.env['MQTT_TOPIC_ROOT'] || 'homie5-dev',
         username: process.env['MQTT_USERNAME'],
         password: process.env['MQTT_PASSWORD'],
     }, sharedMqtt);
@@ -164,16 +181,14 @@ async function test_Discover() {
     setTimeout(()=>{
         console.log("Querying...")
         query(dm.devices$, {
-           device:{
-                state: {
-                    operator: '=',
-                    value: "ready"
-                }
+           device: {
+            id: {
+                operator: 'matchAlways'
+            }
            },
-           property: {
-            id: "state"
-           }
-        } ,3000).pipe(takeUntil(onDestroy$)).subscribe({
+           node: null,
+           property: undefined
+        } ,1000).pipe(takeUntil(onDestroy$)).subscribe({
             next: objs => {
                 console.log(`${objs.length} objects found: `, objs.map(obj => ({ ...obj.attributes, device: obj.device.id })));
     
@@ -287,7 +302,7 @@ async function main() {
 }
 
 if (require.main === module) {
-    const wait = 200000;
+    const wait = 3000;
     main().then((device) => {
 
         setTimeout(() => {

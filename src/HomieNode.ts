@@ -7,7 +7,7 @@ import { NodeAttributes } from "./model";
 import { isObjectEmpty, mapObject } from "./util";
 import { defaultIfEmpty, forkJoin, map, Observable } from "rxjs";
 import { IClientPublishOptions } from "mqtt";
-import { MqttSubscription } from "./mqtt";
+import { MqttMessage, MqttSubscription } from "./mqtt";
 
 
 export class HomieNode extends HomieElement<NodeAttributes, NodePointer, NodeDescription> {
@@ -167,12 +167,10 @@ export class HomieNode extends HomieElement<NodeAttributes, NodePointer, NodeDes
     protected mqttPublish$(path: string, value: string | null | undefined, options: IClientPublishOptions, publishEmpty: boolean): Observable<boolean> {
         return this.device.publish$(path, value, options, publishEmpty);
     }
-    protected mqttSubscribe(path: string): MqttSubscription {
-        return this.device.subscribe(path);
+    protected mqttSubscribe(path: string, retained: boolean = false): Observable<MqttMessage> {
+        return this.device.subscribe(path, retained);
     }
-    protected mqttUnsubscribe(path: string): void {
-        return this.device.unsubscribe(path);
-    }
+
 
     public override wipe$(): Observable<boolean> {
         return forkJoin([

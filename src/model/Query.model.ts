@@ -9,15 +9,17 @@
 import { DeviceAttributes, NodeAttributes, PropertyAttributes } from "./Base.model";
 import { Primitive } from "./RXObject.model";
 
-export type ConditionOperators = '='  | '>' | '<' | '>=' | '<=' | '<>' | 'includes' | 'includesAny' | 'includesAll' | 'includesNone' | 'matchAlways';
+export const ConditionOperators = ['='  , '>' , '<' , '>=' , '<=' , '<>' , 'includes' , 'includesAny' , 'includesAll' , 'includesNone' , 'matchAlways'] as const;
+
+export type ConditionOperator = typeof ConditionOperators[number];
 
 export interface ValueOperatorCondition<T> {
-    operator: ConditionOperators;
+    operator: ConditionOperator;
     value?: T | T[];
 }
 
 export function isValueOperatorCondition<T, K>(object: any): object is ValueOperatorCondition<T> {
-    return typeof object === 'object' && Object.prototype.hasOwnProperty.call(object, 'operator') && Object.prototype.hasOwnProperty.call(object, 'value');
+    return typeof object === 'object' && Object.prototype.hasOwnProperty.call(object, 'operator') &&  ConditionOperators.includes(object['operator']) ;
 }
 
 export type ValueCondition<T> = T | T[] | ValueOperatorCondition<T>;

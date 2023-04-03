@@ -79,16 +79,14 @@ export class DeviceDiscovery extends LifecycleBase {
 
 
     public override async onInit() {
-        if (this.sharedMQTTClient){
+        if (this.sharedMQTTClient) {
             await this.sharedMQTTClient.onInit(); // make sure sharedMQTTClient is initialized (will do nothing if it already is)
         }
         await this.mqtt.onInit();
 
         const rootTopic = makeV5BaseTopic(this.mqttOpts.topicRoot);
 
-        const sub = this.mqtt.subscribe(`${rootTopic}/+/${HD_ATTR_STATE}`);
-
-        sub.messages$.pipe(takeUntil(this.onDestroy$)).subscribe({
+        this.mqtt.subscribe(`${rootTopic}/+/${HD_ATTR_STATE}`, undefined, true).pipe(takeUntil(this.onDestroy$)).subscribe({
             next: msg => {
                 const { topic, payload, packet } = msg;
 
@@ -110,7 +108,6 @@ export class DeviceDiscovery extends LifecycleBase {
             }
         });
 
-        sub.activate();
     }
 
     public override async onDestroy() {

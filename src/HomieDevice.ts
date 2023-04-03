@@ -7,7 +7,7 @@ import { HomieNode } from "./HomieNode";
 import { DictionaryStore } from "./misc";
 import { MQTTConnectOpts, HomieDeviceMode, HomieID, DevicePointer, HomieVersion, HOMIE_VERSION, notNullish, ObjectMap, NodeDescription, ToRXObjectAttributes, isDeviceState, IDAttribute, IDAttributeImpl, HomieElementDescription } from "./model";
 import { DeviceAttributes, DeviceDescription, DeviceState } from "./model";
-import { MqttSubscription, RxMqtt } from "./mqtt";
+import { MqttMessage, MqttSubscription, RxMqtt } from "./mqtt";
 import { isObjectEmpty, makeV5BaseTopic, mapObject } from "./util";
 
 export const HD_ATTR_STATE = '$state';
@@ -239,8 +239,7 @@ export class HomieDevice extends HomieElement<DeviceAttributes, DevicePointer, D
                 this.mqtt.onConnect$.pipe(takeUntil(this.onDestroy$), startWith(undefined)).subscribe({ next: () => { this.onConnect(); } });
             }
 
-            const subs = this.subscribeTopics();
-            subs.forEach(sub => sub.activate());
+            this.subscribeTopics();
 
         } catch (err) {
             console.error(`${this.id} - error connecting to mqtt broker.`, err)
@@ -251,16 +250,12 @@ export class HomieDevice extends HomieElement<DeviceAttributes, DevicePointer, D
 
 
 
-    public subscribeTopics(): MqttSubscription[] {
-        const subs = [];
+    public subscribeTopics() {
 
         // In device mode - keep device state correct by updating potentially overwritten states
         // --> this might be removed in the future.
         if (this.mode === HomieDeviceMode.Device) {
-            const sub = this.subscribe(HD_ATTR_STATE);
-            subs.push(sub);
-
-            sub.messages$.pipe(takeUntil(this.onDestroy$)).subscribe({
+            this.subscribe(HD_ATTR_STATE, true).pipe(takeUntil(this.onDestroy$)).subscribe({
                 next: msg => {
                     const state = msg.payload.toString();
                     if (state !== this.deviceState) {
@@ -270,10 +265,7 @@ export class HomieDevice extends HomieElement<DeviceAttributes, DevicePointer, D
                 }
             });
         } else if (this.mode === HomieDeviceMode.Controller) {
-            const descSub = this.subscribe(HD_ATTR_DESCRIPTION);
-            subs.push(descSub);
-
-            descSub.messages$.pipe(takeUntil(this.onDestroy$)).subscribe({
+            const descSub = this.subscribe(HD_ATTR_DESCRIPTION, true).pipe(takeUntil(this.onDestroy$)).subscribe({
                 next: msg => {
                     const description = msg.payload.toString();
                     if (description !== undefined && description !== null && description !== "") {
@@ -286,10 +278,7 @@ export class HomieDevice extends HomieElement<DeviceAttributes, DevicePointer, D
 
                 }
             });
-            const stateSub = this.subscribe(HD_ATTR_STATE);
-            subs.push(stateSub);
-
-            stateSub.messages$.pipe(takeUntil(this.onDestroy$)).subscribe({
+            const stateSub = this.subscribe(HD_ATTR_STATE, true).pipe(takeUntil(this.onDestroy$)).subscribe({
                 next: msg => {
                     const state = msg.payload.toString();
                     if (isDeviceState(state)) {
@@ -304,9 +293,7 @@ export class HomieDevice extends HomieElement<DeviceAttributes, DevicePointer, D
                 map(attrs => attrs.root),
                 filter(root => !!root),
                 switchMap(root => {
-                    const sub = this.mqttSubscribe(`${root}/${HD_ATTR_STATE}`);
-                    subs.push(sub);
-                    return sub.messages$
+                    return this.mqttSubscribe(`${root}/${HD_ATTR_STATE}`);
                 }),
                 takeUntil(this.onDestroy$),
             ).subscribe({
@@ -317,12 +304,9 @@ export class HomieDevice extends HomieElement<DeviceAttributes, DevicePointer, D
                         // this.log.info(`RootState received: ${rootState}`);
                         this.rootState = rootState;
                     }
-
-
                 }
             });
         }
-        return subs;
     }
 
 
@@ -380,13 +364,13 @@ export class HomieDevice extends HomieElement<DeviceAttributes, DevicePointer, D
         )
     }
 
-    protected override mqttSubscribe(path: string): MqttSubscription {
-        return this.mqtt.subscribe(`${this.rootTopic}/${path}`, { qos: 2, rh: 0 });
+    protected override mqttSubscribe(path: string, retained: boolean = false): Observable<MqttMessage> {
+        return this.mqtt.subscribe(`${this.rootTopic}/${path}`, { qos: 2, rh: 0 }, retained);
     }
 
-    protected override mqttUnsubscribe(path: string) {
-        this.mqtt.unsubscribe(`${this.rootTopic}/${path}`);
-    }
+    // protected override mqttUnsubscribe(path: string) {
+    //     this.mqtt.unsubscribe(`${this.rootTopic}/${path}`);
+    // }
 
 
     protected publishAttribute$(attrName: string, data: any, opts: IClientPublishOptions = { qos: 2, retain: true }) {

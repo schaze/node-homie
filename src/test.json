@@ -1,6 +1,6 @@
 {
     "homie": "5.0",
-    "version": 0,
+    "version": -10,
     "nodes": {
         "switch": {
             "properties": {
