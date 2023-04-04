@@ -55,10 +55,7 @@ export class DeviceDiscovery extends LifecycleBase {
         this.log = new SimpleLogger(this.constructor.name, 'discovery');
 
         const stateTopic = `${makeV5BaseTopic(this.mqttOpts.topicRoot)}/+/${HD_ATTR_STATE}`;
-        this.mqtt = new RxMqtt(this.mqttOpts, { whiteListTopics: [stateTopic] });
-        if (this.sharedMQTTClient) {
-            this.sharedMQTTClient.addWhiteListTopic(stateTopic);
-        }
+        this.mqtt = new RxMqtt(this.mqttOpts);
     }
 
     public events$ = this._discoveryEvents$.asObservable().pipe(
@@ -86,7 +83,7 @@ export class DeviceDiscovery extends LifecycleBase {
 
         const rootTopic = makeV5BaseTopic(this.mqttOpts.topicRoot);
 
-        this.mqtt.subscribe(`${rootTopic}/+/${HD_ATTR_STATE}`, undefined, true).pipe(takeUntil(this.onDestroy$)).subscribe({
+        this.mqtt.subscribe(`${rootTopic}/+/${HD_ATTR_STATE}`, true).pipe(takeUntil(this.onDestroy$)).subscribe({
             next: msg => {
                 const { topic, payload, packet } = msg;
 

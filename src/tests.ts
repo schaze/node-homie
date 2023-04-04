@@ -15,6 +15,7 @@ import { query, queryDevices, queryNodes, queryRXObjects } from "./Query";
 import { isNotNullish } from "./rx";
 import { RXObject } from "./RXObject";
 import { selectDevice } from "./Selector";
+import { asyncTimeout } from './util';
 
 const onDestroy$ = new Subject<boolean>();
 
@@ -62,6 +63,73 @@ async function test_Memory(device: HomieDevice, desc: DeviceDescription): Promis
 
 }
 
+async function test_MQTT() {
+
+    const sharedMqtt = new RxMqtt({
+        url: process.env['MQTT_URL']!,
+        topicRoot: process.env['MQTT_TOPIC_ROOT'] || 'homie5-dev',
+        username: process.env['MQTT_USERNAME'],
+        password: process.env['MQTT_PASSWORD'],
+    })
+
+    await sharedMqtt.onInit();
+
+    const sub = sharedMqtt.subscribe('test/#', true).subscribe({
+        next: msg => {
+            console.log(`Sub1: ${msg.topic} -> ${msg.payload}`)
+        }
+    });
+
+    await asyncTimeout(3000)
+    console.log("Publishing values...");
+
+    sharedMqtt.publish('test/1', 'message1', { qos: 2, retain: true });
+
+    sharedMqtt.publish('test/1/2/3', 'message3', { qos: 2, retain: true });
+    sharedMqtt.publish('test/2', 'message2', { qos: 2, retain: true });
+    sharedMqtt.publish('test/1/2/3', 'message3b', { qos: 2, retain: true });
+    await asyncTimeout(3000)
+
+
+    const sub2 = sharedMqtt.subscribe('test/#', true).pipe(takeUntil(onDestroy$)).subscribe({
+        next: msg => {
+            console.log(`Sub2: ${msg.topic} -> ${msg.payload}`)
+        }
+    });
+    const sub3 = sharedMqtt.subscribe('test/1/#',true).pipe(takeUntil(onDestroy$)).subscribe({
+        next: msg => {
+            console.log(`Sub3: ${msg.topic} -> ${msg.payload}`)
+        }
+    });
+    const sub4 = sharedMqtt.subscribe('test/1', true).pipe(takeUntil(onDestroy$)).subscribe({
+        next: msg => {
+            console.log(`Sub4: ${msg.topic} -> ${msg.payload}`)
+        }
+    });
+    sub.unsubscribe();
+
+
+    await asyncTimeout(3000)
+    console.log("Publishing values again...");
+    sharedMqtt.publish('test/2', 'message4', { qos: 2, retain: true });
+    sharedMqtt.publish('test/1', 'message5', { qos: 2, retain: true });
+
+    await asyncTimeout(3000)
+
+    console.log("Unsub2...");
+    sub2.unsubscribe();
+    await asyncTimeout(2000)
+
+    console.log("Unsub4...");
+    sub4.unsubscribe();
+    await asyncTimeout(2000)
+
+    console.log("Unsub3...");
+    sub3.unsubscribe();
+    await asyncTimeout(5000)
+}
+
+
 async function test_Publish() {
 
     console.log(`${!!"z"} ==> ${ZERO_STRING.length}`)
@@ -73,12 +141,12 @@ async function test_Publish() {
     //     password: process.env['MQTT_PASSWORD'],
     // }, HomieDeviceMode.Device
     // )
-    const device = new HomieDevice({id: 'test-device'},{
+    const device = new HomieDevice({ id: 'test-device' }, {
         url: process.env['MQTT_URL']!,
         topicRoot: process.env['MQTT_TOPIC_ROOT'] || 'homie5-dev',
         username: process.env['MQTT_USERNAME'],
         password: process.env['MQTT_PASSWORD'],
-    } );
+    });
 
 
 
@@ -110,13 +178,13 @@ async function test_Publish() {
 }
 
 async function test_Discover() {
-    const d = new HomieDevice({id: "hi"},{
+    const d = new HomieDevice({ id: "hi" }, {
         url: process.env['MQTT_URL']!,
         topicRoot: process.env['MQTT_TOPIC_ROOT'] || 'homie5-dev',
         username: process.env['MQTT_USERNAME'],
         password: process.env['MQTT_PASSWORD'],
-    } );
-    d.add(new HomieNode(d, {id: "t"}));
+    });
+    d.add(new HomieNode(d, { id: "t" }));
 
     const sharedMqtt = new RxMqtt({
         url: process.env['MQTT_URL']!,
@@ -126,6 +194,11 @@ async function test_Discover() {
     })
     const dm = new HomieDeviceManager();
 
+
+    // const dt = new HomieDevice({id: "hc-deconz2homie-1"},sharedMqtt, HomieDeviceMode.Controller );   
+    // await dt.onInit();
+    // dm.add(dt);
+
     const discovery = new DeviceDiscovery({
         url: process.env['MQTT_URL']!,
         topicRoot: process.env['MQTT_TOPIC_ROOT'] || 'homie5-dev',
@@ -134,13 +207,21 @@ async function test_Discover() {
     }, sharedMqtt);
     discovery.events$.pipe(takeUntil(discovery.onDestroy$)).subscribe({
         next: async event => {
-            if (event.type === "add") {
 
+            if (event.type === "add") {
+                
                 if (!dm.hasDevice(event.deviceId)) {
-                    // console.log("Discovered device: ",event.deviceId);
+                    console.log("Discovered device: ", event.deviceId);
                     const d = event.makeDevice();
                     await d.onInit();
                     dm.add(d);
+                }
+            }
+            if (event.type === "remove") {
+                const device = dm.removeDevice(event.deviceId);
+                if (device){
+                    console.log("Destroying device: ", event.deviceId);
+                    await device.onDestroy();
                 }
             }
         }
@@ -178,26 +259,26 @@ async function test_Discover() {
         }
     })
 
-    setTimeout(()=>{
-        console.log("Querying...")
-        query(dm.devices$, {
-           device: {
-            id: {
-                operator: 'matchAlways'
-            }
-           },
-           node: null,
-           property: undefined
-        } ,1000).pipe(takeUntil(onDestroy$)).subscribe({
-            next: objs => {
-                console.log(`${objs.length} objects found: `, objs.map(obj => ({ ...obj.attributes, device: obj.device.id })));
-    
-            }
-        })
-    }, 3000)
+    // setTimeout(()=>{
+    //     console.log("Querying...")
+    //     query(dm.devices$, {
+    //        device: {
+    //         id: {
+    //             operator: 'matchAlways'
+    //         }
+    //        },
+    //        node: null,
+    //        property: undefined
+    //     } ,1000).pipe(takeUntil(onDestroy$)).subscribe({
+    //         next: objs => {
+    //             console.log(`${objs.length} objects found: `, objs.map(obj => ({ ...obj.attributes, device: obj.device.id })));
+
+    //         }
+    //     })
+    // }, 3000)
 
 
-
+    // await sharedMqtt.onInit();
     await discovery.onInit();
 }
 
@@ -290,6 +371,10 @@ async function test_Update(device: HomieDevice) {
 
 
 async function main() {
+    // console.log("============================== MQTT ========================");
+    // await test_MQTT();
+    // console.log("============================== END MQTT ====================");
+
     const device = await test_Publish();
     console.log("Published");
     await test_Discover();
@@ -302,7 +387,7 @@ async function main() {
 }
 
 if (require.main === module) {
-    const wait = 3000;
+    const wait = 300000;
     main().then((device) => {
 
         setTimeout(() => {

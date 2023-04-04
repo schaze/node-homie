@@ -127,10 +127,8 @@ export class HomieProperty extends HomieElement<PropertyAttributes, PropertyPoin
     }
 
     protected readValueFromMqtt$(): Observable<string | undefined> {
-        // const valueReadSub = this.subscribe('');
-        const valueRead$ = this.subscribe('', this.attributes.retained).pipe(
+        const valueRead$ = this.subscribe('', true).pipe(
             takeUntil(this.onDestroy$),
-            filter(msg => msg.packet.retain),
             take(1),
             map(msg => {
                 const v = msg.payload.toString();
@@ -140,22 +138,17 @@ export class HomieProperty extends HomieElement<PropertyAttributes, PropertyPoin
             }),
 
         );
-        // valueReadSub.activate();
         return race(
             valueRead$,
-            // this.device.c
-            // valueReadSub.active.pipe(
-            //     filter(active => active),
-            //     take(1),
-            //     switchMap(_ => timer(this.options.readTimeout || 0).pipe(
-            //         tap(_ => { this.log.debug('Timed out reading value from mqtt!'); }),
-            //         map(_ => undefined))))
+            timer(this.options.readTimeout || DEFAULT_VALUE_READ_TIMEOUT).pipe(
+                tap(_ => { this.log.debug('Timed out reading value from mqtt!'); }),
+                map(_ => undefined))
         );
     }
 
     protected subscribeTopics() {
         if (this.mode === HomieDeviceMode.Controller) {
-            const valueSub = this.subscribe('').pipe(takeUntil(this.onDestroy$)).subscribe({
+            const valueSub = this.subscribe('',this.attributes.retained).pipe(takeUntil(this.onDestroy$)).subscribe({
                 next: msg => {
                     const payload = msg.payload.toString();
                     // transform null and undefined values to empty strings

@@ -293,7 +293,7 @@ export class HomieDevice extends HomieElement<DeviceAttributes, DevicePointer, D
                 map(attrs => attrs.root),
                 filter(root => !!root),
                 switchMap(root => {
-                    return this.mqttSubscribe(`${root}/${HD_ATTR_STATE}`);
+                    return this.mqttSubscribe(`${root}/${HD_ATTR_STATE}`, true);
                 }),
                 takeUntil(this.onDestroy$),
             ).subscribe({
@@ -365,7 +365,7 @@ export class HomieDevice extends HomieElement<DeviceAttributes, DevicePointer, D
     }
 
     protected override mqttSubscribe(path: string, retained: boolean = false): Observable<MqttMessage> {
-        return this.mqtt.subscribe(`${this.rootTopic}/${path}`, { qos: 2, rh: 0 }, retained);
+        return this.mqtt.subscribe(`${this.rootTopic}/${path}`, retained, { qos: 2, rh: 0 },);
     }
 
     // protected override mqttUnsubscribe(path: string) {
