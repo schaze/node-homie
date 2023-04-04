@@ -26,6 +26,12 @@ const DEFAULT_ATTRIBUTES: Partial<PropertyAttributes> = {
 }
 
 
+function applyDefaults(attr: PropertyAttributes): PropertyAttributes{
+    const copy = {...attr};
+    if (copy.retained === undefined) { copy.retained = DEFAULT_ATTRIBUTES.retained }
+    if (copy.settable === undefined) { copy.settable = DEFAULT_ATTRIBUTES.settable }
+    return copy;
+}
 
 export class HomieProperty extends HomieElement<PropertyAttributes, PropertyPointer, PropertyDescription> {
     public readonly device: HomieDevice;
@@ -90,19 +96,21 @@ export class HomieProperty extends HomieElement<PropertyAttributes, PropertyPoin
         attributes: PropertyAttributes,
         protected options: HomiePropertyOptions = DEFAULT_OPTIONS
     ) {
-        super({ ...DEFAULT_ATTRIBUTES, ...attributes });
+        super(applyDefaults(attributes));
         this.device = node.device;
 
         this.topic = `${node.topic}/${this.id}`;
         this.pointer = `${node.pointer}/${this.id}`;
     }
 
+
+
     public getDescription(): PropertyDescription {
         const { retained, settable, id, ...rest } = this.attributes;
         return {
             ...rest,
-            retained: retained === DEFAULT_ATTRIBUTES.retained ? undefined : false, // omit retained if it has the default value
-            settable: settable === DEFAULT_ATTRIBUTES.settable ? undefined : true // omit settable if it has the default value
+            retained: retained === DEFAULT_ATTRIBUTES.retained ? undefined : retained, // omit retained if it has the default value
+            settable: settable === DEFAULT_ATTRIBUTES.settable ? undefined : settable // omit settable if it has the default value
         }
     }
 
@@ -148,7 +156,7 @@ export class HomieProperty extends HomieElement<PropertyAttributes, PropertyPoin
 
     protected subscribeTopics() {
         if (this.mode === HomieDeviceMode.Controller) {
-            const valueSub = this.subscribe('',this.attributes.retained).pipe(takeUntil(this.onDestroy$)).subscribe({
+            const valueSub = this.subscribe('', this.attributes.retained).pipe(takeUntil(this.onDestroy$)).subscribe({
                 next: msg => {
                     const payload = msg.payload.toString();
                     // transform null and undefined values to empty strings
@@ -263,9 +271,9 @@ export class HomieProperty extends HomieElement<PropertyAttributes, PropertyPoin
     }
 
 
-
-
-
+    public override updateAttributes(update: PropertyAttributes) {
+        super.updateAttributes(applyDefaults(update));
+    }
 
     protected mqttPublish$(path: string, value: string | null | undefined, options: IClientPublishOptions, publishEmpty: boolean): Observable<boolean> {
         return this.node.publish$(path, value, options, publishEmpty);
