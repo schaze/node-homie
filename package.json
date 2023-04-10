@@ -97,6 +97,6 @@
   "dependencies": {
     "jsonschema": "~1.4.1",
     "mqtt": "~4.3.7",
-    "rxjs": "~7.4.0"
+    "rxjs": "^7.4.0"
   }
 }
