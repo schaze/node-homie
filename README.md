@@ -595,6 +595,6 @@ Please note both are async methods (Promise based) so you can also actually `awa
 
 
 
-# Refrecences
+# References
 - Core class architecture was inspired by the excellent library https://github.com/chrispyduck/homie-device 
 - Homie comvention: https://homieiot.github.io/
