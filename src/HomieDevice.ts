@@ -1,29 +1,50 @@
-import { stat } from "fs";
 import { Validator } from "jsonschema";
 import { IClientPublishOptions } from "mqtt";
-import { BehaviorSubject, catchError, combineLatest, defaultIfEmpty, filter, forkJoin, lastValueFrom, map, Observable, of, startWith, switchMap, takeUntil, withLatestFrom } from "rxjs";
+import {
+    BehaviorSubject,
+    catchError,
+    combineLatest,
+    defaultIfEmpty,
+    filter,
+    forkJoin,
+    lastValueFrom,
+    map,
+    Observable,
+    of,
+    startWith,
+    switchMap,
+    takeUntil,
+} from "rxjs";
 import { HomieElement } from "./HomieElement";
 import { HomieNode } from "./HomieNode";
 import { DictionaryStore } from "./misc";
-import { MQTTConnectOpts, HomieDeviceMode, HomieID, DevicePointer, HomieVersion, HOMIE_VERSION, notNullish, ObjectMap, NodeDescription, ToRXObjectAttributes, isDeviceState, IDAttribute, IDAttributeImpl, HomieElementDescription } from "./model";
+import {
+    MQTTConnectOpts,
+    HomieDeviceMode,
+    HomieID,
+    DevicePointer,
+    HomieVersion,
+    HOMIE_VERSION,
+    notNullish,
+    ObjectMap,
+    NodeDescription,
+    isDeviceState,
+    IDAttribute,
+} from "./model";
 import { DeviceAttributes, DeviceDescription, DeviceState } from "./model";
-import { MqttMessage, MqttSubscription, RxMqtt } from "./mqtt";
+import { MqttMessage, RxMqtt } from "./mqtt";
 import { isObjectEmpty, makeV5BaseTopic, mapObject } from "./util";
 
-export const HD_ATTR_STATE = '$state';
-export const HD_ATTR_DESCRIPTION = '$description';
+export const HD_ATTR_STATE = "$state";
+export const HD_ATTR_DESCRIPTION = "$description";
 
-export const DeviceDescriptionSchema = require('./DeviceDescription.Schema.json');
-
-
-
+export const DeviceDescriptionSchema = require("./DeviceDescription.Schema.json");
 
 export class HomieDevice extends HomieElement<DeviceAttributes, DevicePointer, DeviceDescription> {
     protected readonly sharedMqttClient: boolean;
     protected readonly rootTopic: string;
     public readonly topic: string;
     public readonly pointer: DevicePointer;
-
 
     protected _rootState$ = new BehaviorSubject<DeviceState | undefined>(undefined);
     public rootState$ = this._rootState$.asObservable();
@@ -36,25 +57,24 @@ export class HomieDevice extends HomieElement<DeviceAttributes, DevicePointer, D
     }
 
     public get deviceState(): DeviceState {
-        return this.attributes.state
+        return this.attributes.state;
     }
     protected set deviceState(value: DeviceState) {
-        this.setAttribute('state', value);
+        this.setAttribute("state", value);
     }
-
 
     public readonly state$: Observable<DeviceState>;
 
     /**
      * @description
-     * Will return the combined state of this device and (if applicable) the connected root device. 
+     * Will return the combined state of this device and (if applicable) the connected root device.
      * Note: If you only want the deviceState use the deviceState attribute.
      */
     public get state(): DeviceState {
-        if (this.rootState !== 'lost') {
-            return this.attributes.state
+        if (this.rootState !== "lost") {
+            return this.attributes.state;
         } else {
-            return this.rootState
+            return this.rootState;
         }
     }
 
@@ -69,7 +89,7 @@ export class HomieDevice extends HomieElement<DeviceAttributes, DevicePointer, D
         return this.attributes.version;
     }
     protected set version(value: number) {
-        this.setAttribute('version', value);
+        this.setAttribute("version", value);
     }
 
     private _descriptionUpdateNeeded = false;
@@ -81,10 +101,9 @@ export class HomieDevice extends HomieElement<DeviceAttributes, DevicePointer, D
         this._descriptionUpdateNeeded = value;
     }
 
-
     protected validator = new Validator();
 
-    protected nodeStore = new DictionaryStore<HomieNode>(node => node.id);
+    protected nodeStore = new DictionaryStore<HomieNode>((node) => node.id);
 
     public nodes$ = this.nodeStore.state$;
     public nodesChange$ = this.nodeStore.events$;
@@ -96,61 +115,64 @@ export class HomieDevice extends HomieElement<DeviceAttributes, DevicePointer, D
     constructor(
         attributes: Partial<DeviceAttributes> & IDAttribute,
         mqttOrMqttOptions: MQTTConnectOpts | RxMqtt,
-        public readonly mode: HomieDeviceMode = HomieDeviceMode.Device
+        public readonly mode: HomieDeviceMode = HomieDeviceMode.Device,
     ) {
-        super({ homie: HOMIE_VERSION, state: 'init', version: 0, ...attributes });
+        super({ homie: HOMIE_VERSION, state: "init", version: 0, ...attributes });
 
         this.sharedMqttClient = mqttOrMqttOptions instanceof RxMqtt;
 
         this.state$ = combineLatest({
-            state: this.attributes$.pipe(map(attrs => attrs.state)),
-            rootState: this.rootState$
-        }).pipe(map(states => {
-            if (states.rootState !== 'lost') {
-                return states.state
-            } else {
-                return states.rootState
-            }
-        }))
+            state: this.attributes$.pipe(map((attrs) => attrs.state)),
+            rootState: this.rootState$,
+        }).pipe(
+            map((states) => {
+                if (states.rootState !== "lost") {
+                    return states.state;
+                } else {
+                    return states.rootState;
+                }
+            }),
+        );
 
-        this.mqttOpts = mqttOrMqttOptions instanceof RxMqtt ? { ...mqttOrMqttOptions.mqttOpts } : { ...mqttOrMqttOptions }
+        this.mqttOpts =
+            mqttOrMqttOptions instanceof RxMqtt ? { ...mqttOrMqttOptions.mqttOpts } : { ...mqttOrMqttOptions };
         this.rootTopic = makeV5BaseTopic(this.mqttOpts.topicRoot);
-        this.topic = `${this.rootTopic}/${this.id}`
+        this.topic = `${this.rootTopic}/${this.id}`;
         this.pointer = this.id;
 
         if (this.mode === HomieDeviceMode.Device) {
             if (!this.sharedMqttClient) {
                 this.mqttOpts.will = {
                     topic: `${this.topic}/${HD_ATTR_STATE}`,
-                    payload: 'lost',
+                    payload: "lost",
                     qos: 2,
-                    retain: true
-                }
+                    retain: true,
+                };
             }
             this._descriptionUpdateNeeded = true;
-            this.patchAttributes({ homie: HOMIE_VERSION, state: 'init', version: 0 });
+            this.patchAttributes({ homie: HOMIE_VERSION, state: "init", version: 0 });
         }
 
-        this.mqtt = ((mqttOrMqttOptions instanceof RxMqtt)) ? mqttOrMqttOptions : new RxMqtt(this.mqttOpts);
-
+        this.mqtt = mqttOrMqttOptions instanceof RxMqtt ? mqttOrMqttOptions : new RxMqtt(this.mqttOpts);
     }
 
     public static fromDescription(
         id: HomieID,
         description: DeviceDescription,
         mqttOrMqttOptions: MQTTConnectOpts | RxMqtt,
-        mode: HomieDeviceMode = HomieDeviceMode.Controller
+        mode: HomieDeviceMode = HomieDeviceMode.Controller,
     ): HomieDevice {
         const { nodes, ...attributes } = description;
-        const device = new HomieDevice({ ...attributes, id, state: 'init' }, mqttOrMqttOptions, mode);
+        const device = new HomieDevice({ ...attributes, id, state: "init" }, mqttOrMqttOptions, mode);
 
         if (notNullish(nodes)) {
-            device.nodeStore.addOrUpdateMany(mapObject(nodes, (id, data) => HomieNode.fromDescription(device, id, data)));
+            device.nodeStore.addOrUpdateMany(
+                mapObject(nodes, (id, data) => HomieNode.fromDescription(device, id, data)),
+            );
         }
 
         return device;
     }
-
 
     public async updateFromDescription(description?: DeviceDescription) {
         if (description === undefined || description === null) {
@@ -174,11 +196,9 @@ export class HomieDevice extends HomieElement<DeviceAttributes, DevicePointer, D
         if (notNullish(nodes)) {
             await this.updateNodes(nodes);
         }
-
     }
 
     protected async updateNodes(nodeDescriptions: ObjectMap<HomieID, NodeDescription>) {
-
         // update changed and add new nodes
         const addedNodes: ObjectMap<HomieID, HomieNode> = {};
         for (const id in nodeDescriptions) {
@@ -206,7 +226,7 @@ export class HomieDevice extends HomieElement<DeviceAttributes, DevicePointer, D
                 const node = this.nodes[id];
                 // if existing node id is not in new nodeDescriptions, the node has to be removed
                 if (!Object.prototype.hasOwnProperty.call(nodeDescriptions, id)) {
-                    removedNodes.push(id)
+                    removedNodes.push(id);
                 }
             }
         }
@@ -214,102 +234,117 @@ export class HomieDevice extends HomieElement<DeviceAttributes, DevicePointer, D
         await Promise.all(Object.entries(removed).map(([_, node]) => node.onDestroy()));
     }
 
-
-
     public getDescription(): DeviceDescription {
         const { id, state, ...desc } = this.attributes;
         return {
             ...desc,
-            nodes: mapObject(this.nodes, (id, node) => node.getDescription())
-        }
+            nodes: mapObject(this.nodes, (id, node) => node.getDescription()),
+        };
     }
 
     public override async onInit(): Promise<void> {
-        if (this.isInitialized) { return; }
+        if (this.isInitialized) {
+            return;
+        }
         try {
             if (!this.sharedMqttClient) {
-                const mqttInit = this.mqtt.onInit()
+                const mqttInit = this.mqtt.onInit();
                 this._isInitialized = true;
-                this.mqtt.onError$.pipe(takeUntil(this.onDestroy$)).subscribe({ next: err => { this.onError(err); } });
-                this.mqtt.onConnect$.pipe(takeUntil(this.onDestroy$)).subscribe({ next: () => { this.onConnect(); } });
+                this.mqtt.onError$.pipe(takeUntil(this.onDestroy$)).subscribe({
+                    next: (err) => {
+                        this.onError(err);
+                    },
+                });
+                this.mqtt.onConnect$.pipe(takeUntil(this.onDestroy$)).subscribe({
+                    next: () => {
+                        this.onConnect();
+                    },
+                });
                 await mqttInit;
             } else {
                 this._isInitialized = true;
-                this.mqtt.onError$.pipe(takeUntil(this.onDestroy$)).subscribe({ next: err => { this.onError(err); } });
-                this.mqtt.onConnect$.pipe(takeUntil(this.onDestroy$), startWith(undefined)).subscribe({ next: () => { this.onConnect(); } });
+                this.mqtt.onError$.pipe(takeUntil(this.onDestroy$)).subscribe({
+                    next: (err) => {
+                        this.onError(err);
+                    },
+                });
+                this.mqtt.onConnect$.pipe(takeUntil(this.onDestroy$), startWith(undefined)).subscribe({
+                    next: () => {
+                        this.onConnect();
+                    },
+                });
             }
 
             this.subscribeTopics();
-
         } catch (err) {
-            console.error(`${this.id} - error connecting to mqtt broker.`, err)
+            console.error(`${this.id} - error connecting to mqtt broker.`, err);
             this.log.error(`${this.id} - error connecting to mqtt broker.`, err);
-            return Promise.reject(err)
+            return Promise.reject(err);
         }
     }
 
-
-
     public subscribeTopics() {
-
         // In device mode - keep device state correct by updating potentially overwritten states
         // --> this might be removed in the future.
         if (this.mode === HomieDeviceMode.Device) {
-            this.subscribe(HD_ATTR_STATE, true).pipe(takeUntil(this.onDestroy$)).subscribe({
-                next: msg => {
-                    const state = msg.payload.toString();
-                    if (state !== this.deviceState) {
-                        this.updateState$(this.deviceState).subscribe();
-                    }
-
-                }
-            });
-        } else if (this.mode === HomieDeviceMode.Controller) {
-            const descSub = this.subscribe(HD_ATTR_DESCRIPTION, true).pipe(takeUntil(this.onDestroy$)).subscribe({
-                next: msg => {
-                    const description = msg.payload.toString();
-                    if (description !== undefined && description !== null && description !== "") {
-                        try {
-                            this.updateFromDescription(JSON.parse(description));
-                        } catch (error) {
-                            this.log.error(`Cannot parse description!`, error);
+            this.subscribe(HD_ATTR_STATE, true)
+                .pipe(takeUntil(this.onDestroy$))
+                .subscribe({
+                    next: (msg) => {
+                        const state = msg.payload.toString();
+                        if (state !== this.deviceState) {
+                            this.updateState$(this.deviceState).subscribe();
                         }
-                    }
+                    },
+                });
+        } else if (this.mode === HomieDeviceMode.Controller) {
+            const descSub = this.subscribe(HD_ATTR_DESCRIPTION, true)
+                .pipe(takeUntil(this.onDestroy$))
+                .subscribe({
+                    next: (msg) => {
+                        const description = msg.payload.toString();
+                        if (description !== undefined && description !== null && description !== "") {
+                            try {
+                                this.updateFromDescription(JSON.parse(description));
+                            } catch (error) {
+                                this.log.error(`Cannot parse description!`, error);
+                            }
+                        }
+                    },
+                });
+            const stateSub = this.subscribe(HD_ATTR_STATE, true)
+                .pipe(takeUntil(this.onDestroy$))
+                .subscribe({
+                    next: (msg) => {
+                        const state = msg.payload.toString();
+                        if (isDeviceState(state)) {
+                            // this.log.info(`State received: ${state}`);
+                            this.deviceState = state;
+                        }
+                    },
+                });
 
-                }
-            });
-            const stateSub = this.subscribe(HD_ATTR_STATE, true).pipe(takeUntil(this.onDestroy$)).subscribe({
-                next: msg => {
-                    const state = msg.payload.toString();
-                    if (isDeviceState(state)) {
-                        // this.log.info(`State received: ${state}`);
-                        this.deviceState = state;
-                    }
-                }
-            });
-
-            this.attributes$.pipe(
-                takeUntil(this.onDestroy$),
-                map(attrs => attrs.root),
-                filter(root => !!root),
-                switchMap(root => {
-                    return this.mqttSubscribe(`${root}/${HD_ATTR_STATE}`, true);
-                }),
-                takeUntil(this.onDestroy$),
-            ).subscribe({
-                next: msg => {
-
-                    const rootState = msg.payload.toString();
-                    if (isDeviceState(rootState)) {
-                        // this.log.info(`RootState received: ${rootState}`);
-                        this.rootState = rootState;
-                    }
-                }
-            });
+            this.attributes$
+                .pipe(
+                    takeUntil(this.onDestroy$),
+                    map((attrs) => attrs.root),
+                    filter((root) => !!root),
+                    switchMap((root) => {
+                        return this.mqttSubscribe(`${root}/${HD_ATTR_STATE}`, true);
+                    }),
+                    takeUntil(this.onDestroy$),
+                )
+                .subscribe({
+                    next: (msg) => {
+                        const rootState = msg.payload.toString();
+                        if (isDeviceState(rootState)) {
+                            // this.log.info(`RootState received: ${rootState}`);
+                            this.rootState = rootState;
+                        }
+                    },
+                });
         }
     }
-
-
 
     /**
      * @description
@@ -320,24 +355,31 @@ export class HomieDevice extends HomieElement<DeviceAttributes, DevicePointer, D
      * @param node : new node to add (also accepts undefined values for convinience)
      * @returns added node
      */
-    public add<T extends (HomieNode | undefined) = HomieNode>(node: T): T {
-        if (!node) { return <T>undefined; }
-        if (node.device !== this) { throw new Error(`Property ${node.id} cannot be added to device ${this.id} as it has a different parent: ${node.device?.id}`); }
+    public add<T extends HomieNode | undefined = HomieNode>(node: T): T {
+        if (!node) {
+            return <T>undefined;
+        }
+        if (node.device !== this) {
+            throw new Error(
+                `Property ${node.id} cannot be added to device ${this.id} as it has a different parent: ${node.device?.id}`,
+            );
+        }
         const anode = this.nodeStore.add(node) as T;
         return anode;
     }
 
     /**
      * Returns node for id.
-     * 
+     *
      * @param nodeId id of node or nullish for convinience
      * @returns node for the given id. or undefined if node was not found
      */
     public get<T extends HomieNode = HomieNode>(nodeId: string | null | undefined): T | undefined {
-        if (nodeId === null || nodeId === undefined) { return undefined; }
+        if (nodeId === null || nodeId === undefined) {
+            return undefined;
+        }
         return this.nodeStore.getItem(nodeId) as T;
     }
-
 
     /**
      * Removes a node from the device.
@@ -348,49 +390,64 @@ export class HomieDevice extends HomieElement<DeviceAttributes, DevicePointer, D
      * @returns Removed node or undefined if the node was not found.
      */
     public remove<T extends HomieNode = HomieNode>(node: T | string | null | undefined): T | undefined {
-        if (node === undefined || node === null) { return undefined; }
-        const anode = this.nodeStore.remove(typeof node === 'string' ? node : node.id) as T;
+        if (node === undefined || node === null) {
+            return undefined;
+        }
+        const anode = this.nodeStore.remove(typeof node === "string" ? node : node.id) as T;
         return anode;
     }
 
-
-    protected override mqttPublish$(path: string, value: string | null | undefined, options?: IClientPublishOptions, publishEmpty = false): Observable<boolean> {
-        if (!this.isInitialized) { throw new Error('Trying to publish while not initialized!'); } // return of(false) instead of throwing error?
-        if (!publishEmpty && (value === undefined || value === null || value === '')) { return of(true); }
+    protected override mqttPublish$(
+        path: string,
+        value: string | null | undefined,
+        options?: IClientPublishOptions,
+        publishEmpty = false,
+    ): Observable<boolean> {
+        if (!this.isInitialized) {
+            throw new Error("Trying to publish while not initialized!");
+        } // return of(false) instead of throwing error?
+        if (!publishEmpty && (value === undefined || value === null || value === "")) {
+            return of(true);
+        }
         this.log.silly(`Publishing ${path} -> ${value}  | options: ${options}`);
-        return this.mqtt.publish$(`${this.rootTopic}/${path}`, (value === '' || value === undefined) ? null : value, options).pipe(
-            map(_ => true),
-            catchError(err => of(false))
-        )
+        return this.mqtt
+            .publish$(`${this.rootTopic}/${path}`, value === "" || value === undefined ? null : value, options)
+            .pipe(
+                map((_) => true),
+                catchError((err) => of(false)),
+            );
     }
 
     protected override mqttSubscribe(path: string, retained: boolean = false): Observable<MqttMessage> {
-        return this.mqtt.subscribe(`${this.rootTopic}/${path}`, retained, { qos: 2, rh: 0 },);
+        return this.mqtt.subscribe(`${this.rootTopic}/${path}`, retained, { qos: 2, rh: 0 });
     }
 
     // protected override mqttUnsubscribe(path: string) {
     //     this.mqtt.unsubscribe(`${this.rootTopic}/${path}`);
     // }
 
-
     protected publishAttribute$(attrName: string, data: any, opts: IClientPublishOptions = { qos: 2, retain: true }) {
         return this.mqttPublish$(`${this.id}/${attrName}`, data, opts);
     }
 
     protected publishDescription$() {
-        if (!this._descriptionUpdateNeeded || !this.isInitialized) { return of(this.version); }
+        if (!this._descriptionUpdateNeeded || !this.isInitialized) {
+            return of(this.version);
+        }
         this.version = Date.now();
-        return this.publishAttribute$(HD_ATTR_DESCRIPTION, JSON.stringify(this.getDescription())).pipe(map(_ => {
-            this._descriptionUpdateNeeded = false;
-            return this.version;
-        }));
+        return this.publishAttribute$(HD_ATTR_DESCRIPTION, JSON.stringify(this.getDescription())).pipe(
+            map((_) => {
+                this._descriptionUpdateNeeded = false;
+                return this.version;
+            }),
+        );
     }
 
-
-
     public sendStateUpdate$(state?: DeviceState | null): Observable<boolean> {
-        if (!this.isInitialized || this.mode !== HomieDeviceMode.Device) { return of(true); }
-        return this.publishAttribute$(HD_ATTR_STATE, (state !== null && state !== undefined) ? state : this.deviceState)
+        if (!this.isInitialized || this.mode !== HomieDeviceMode.Device) {
+            return of(true);
+        }
+        return this.publishAttribute$(HD_ATTR_STATE, state !== null && state !== undefined ? state : this.deviceState);
     }
 
     public updateState$(state: DeviceState): Observable<boolean> {
@@ -406,19 +463,20 @@ export class HomieDevice extends HomieElement<DeviceAttributes, DevicePointer, D
      */
     public deviceChangeTransaction(cb: () => Promise<boolean>): Observable<boolean> {
         return new Observable<boolean>((subscriber) => {
-            lastValueFrom(this.updateState$('init'))
+            lastValueFrom(this.updateState$("init"))
                 .then(cb)
-                .then(async result => {
+                .then(async (result) => {
                     await lastValueFrom(this.publishDescription$()); // publish description
                     subscriber.next(result);
-                }).catch(err => {
-                    subscriber.error(err);
-                }).finally(async () => {
-                    await lastValueFrom(this.updateState$('ready'))
-                        .finally(() => {
-                            subscriber.complete();
-                        })
                 })
+                .catch((err) => {
+                    subscriber.error(err);
+                })
+                .finally(async () => {
+                    await lastValueFrom(this.updateState$("ready")).finally(() => {
+                        subscriber.complete();
+                    });
+                });
         });
     }
 
@@ -441,33 +499,30 @@ export class HomieDevice extends HomieElement<DeviceAttributes, DevicePointer, D
         }
     }
 
-    public onError(err: Error): void {
-
-    }
+    public onError(err: Error): void {}
 
     private async disconnect() {
         if (this.isInitialized) {
             if (this.mode === HomieDeviceMode.Device) {
-                await lastValueFrom(this.updateState$('disconnected'));
+                await lastValueFrom(this.updateState$("disconnected"));
             }
             try {
                 if (!this.sharedMqttClient) {
                     await this.mqtt.onDestroy();
-                    this.log.debug('Connection closed');
+                    this.log.debug("Connection closed");
                 }
             } catch (err) {
-                this.log.error('Error closing mqtt connection: ', err);
+                this.log.error("Error closing mqtt connection: ", err);
             }
         }
     }
 
-
     protected validateDescription(description: DeviceDescription): boolean {
-        const result = this.validator.validate(description, DeviceDescriptionSchema, { nestedErrors: true })
+        const result = this.validator.validate(description, DeviceDescriptionSchema, { nestedErrors: true });
         if (!result.valid) {
-            result.errors.forEach(error => {
+            result.errors.forEach((error) => {
                 this.log.error(`Error parsing input: ${error.toString()}`);
-            })
+            });
             return false;
         }
         return true;
@@ -478,17 +533,16 @@ export class HomieDevice extends HomieElement<DeviceAttributes, DevicePointer, D
             return forkJoin([
                 this.publish$(HD_ATTR_STATE, null, { retain: true, qos: 2 }, true),
                 this.publish$(HD_ATTR_DESCRIPTION, null, { retain: true, qos: 2 }, true),
-                ...Object.values(this.nodes).map(node => {
+                ...Object.values(this.nodes).map((node) => {
                     return node.wipe$();
-                })]
-            ).pipe(
+                }),
+            ]).pipe(
                 defaultIfEmpty([true]), // emit an array with a true element if forkjoin will complete without emitting (this is the case when there are no attributes)
-                map(results => results.indexOf(false) === -1)
+                map((results) => results.indexOf(false) === -1),
             );
         }
         return of(true);
     }
-
 
     public override async onDestroy() {
         await super.onDestroy();
@@ -496,6 +550,5 @@ export class HomieDevice extends HomieElement<DeviceAttributes, DevicePointer, D
         await this.disconnect();
         await this.nodeStore.onDestroy();
     }
-
-
 }
+
