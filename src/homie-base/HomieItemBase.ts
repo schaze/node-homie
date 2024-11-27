@@ -9,12 +9,11 @@ import { Tags } from "./Tags";
 import { forkJoin, lastValueFrom, Observable, of } from "rxjs";
 import { MqttSubscription } from "../mqtt";
 
-const H_ATTR_TAGS = '$tags';
+const H_ATTR_TAGS = "$tags";
 export class HomieItemBase<
     TParent extends HomieBase<BaseAtrributes> | undefined,
-    TAttributes extends BaseItemAtrributes> extends HomieStructureElement<TParent, TAttributes> {
-
-
+    TAttributes extends BaseItemAtrributes,
+> extends HomieStructureElement<TParent, TAttributes> {
     public tags: Tags<TParent, TAttributes>; //= new Tags(this);
     public meta: Meta<TParent, TAttributes>; // = new Meta(this);
 
@@ -22,27 +21,32 @@ export class HomieItemBase<
         super(parent, attrs);
         this.tags = new Tags(this);
         this.meta = new Meta(this);
-        if (attrs.tags === undefined) { this.tags.setTags([]) }
-        if (attrs.meta === undefined) { this.meta.setMeta([]) }
+        if (attrs.tags === undefined) {
+            this.tags.setTags([]);
+        }
+        if (attrs.meta === undefined) {
+            this.meta.setMeta([]);
+        }
     }
 
     protected override parseAttribute<T extends keyof TAttributes>(name: T, rawValue: string): TAttributes[T] {
         switch (name) {
-            case 'name':
+            case "name":
             default:
                 return super.parseAttribute(name, rawValue);
         }
     }
 
-    public override publishAttribute$<T extends keyof TAttributes>(name: T, value?: TAttributes[T]): Observable<boolean> {
-        if (name != 'meta') {
+    public override publishAttribute$<T extends keyof TAttributes>(
+        name: T,
+        value?: TAttributes[T],
+    ): Observable<boolean> {
+        if (name != "meta") {
             return super.publishAttribute$(name, value);
         }
         this.log.silly(`publish attribute: ${name} => ${value}`);
-        return this.meta.publish$(value as TAttributes['meta']);
+        return this.meta.publish$(value as TAttributes["meta"]);
     }
-
-
 
     // rx wipe
     // ==========================
@@ -52,25 +56,23 @@ export class HomieItemBase<
             return this.wipeAttributes$(this.attributes);
         }
         return forkJoin(
-            Object.keys(this.attributes).map(attrName => {
-                if (attrName !== 'id' && attrName !== 'tags' && attrName !== 'meta') {
-                    return this.wipeAttribute$(attrName as keyof TAttributes)
+            Object.keys(this.attributes).map((attrName) => {
+                if (attrName !== "id" && attrName !== "tags" && attrName !== "meta") {
+                    return this.wipeAttribute$(attrName as keyof TAttributes);
                 }
-                if (!keepTags && attrName === 'tags') {
+                if (!keepTags && attrName === "tags") {
                     return this.wipeAttribute$(attrName);
                 }
-                if (!keepMeta && attrName === 'meta') {
+                if (!keepMeta && attrName === "meta") {
                     return this.meta.wipe$();
                 }
 
                 return of(true);
-            })
+            }),
         ).pipe(
             defaultIfEmpty([true]), // emit an array with a true element if forkjoin will complete without emitting (this is the case when there are no attributes)
-            map(results => results.indexOf(false) === -1)
+            map((results) => results.indexOf(false) === -1),
         );
-
-
     }
 
     public override wipe$(keepTags = true, keepMeta = true): Observable<boolean> {
@@ -79,15 +81,15 @@ export class HomieItemBase<
         }
 
         return of(true);
-
     }
 
-
     public async onInit() {
-        if (this.isInitialized) { return; }
+        if (this.isInitialized) {
+            return;
+        }
         const subs = this.subscribeTopics();
 
-        subs.forEach(sub => sub.activate());
+        subs.forEach((sub) => sub.activate());
 
         if (this.mode === HomieDeviceMode.Device) {
             await lastValueFrom(this.publishAttributes$());
@@ -95,7 +97,9 @@ export class HomieItemBase<
         this._initialized = true;
     }
 
-
+    public subscribe_attrs(): string[] {
+        return ["+"];
+    }
 
     public subscribeTopics(): MqttSubscription[] {
         const subs: MqttSubscription[] = [];
@@ -105,7 +109,7 @@ export class HomieItemBase<
         subs.push(metaSub);
 
         metaSub.messages$.pipe(takeUntil(this.onDestroy$)).subscribe({
-            next: msg => {
+            next: (msg) => {
                 this.log.silly(`${this.id} - Subscription to '$meta' - onMessage [${msg.topic}]: ${msg.payload}`);
                 const metaKeyIndex = msg.topicTokens.indexOf(H_ATTR_META);
                 const metaTokens = msg.topicTokens.slice(metaKeyIndex);
@@ -114,63 +118,68 @@ export class HomieItemBase<
             },
             complete: () => {
                 this.unsubscribe(`${H_ATTR_META}/#`);
-            }
+            },
         });
 
         // if in controller mode - subscribe to all attributes;
         if (this.mode === HomieDeviceMode.Controller) {
-            const attrsSub = this.subscribe('+');
-            subs.push(attrsSub);
+            const subattrs = this.subscribe_attrs();
+            for (const attr of subattrs) {
+                this.log.silly(`${this.id} - Subscribing to '${attr}'`);
+                const attrsSub = this.subscribe(attr);
+                subs.push(attrsSub);
 
-            attrsSub.messages$.pipe(           // Subscribe to device attributes
-                takeUntil(this.onDestroy$),
-                filter(msg =>
-                    msg.topicTokens[msg.topicTokens.length - 1].startsWith('$') &&
-                    !(msg.topicTokens[msg.topicTokens.length - 1] === H_ATTR_META)) // filter out messages for $meta and $tags (they are handled seperately)
-            ).subscribe({
-                next: msg => {
-                    this.log.silly(`${this.id} - Subscription to '+' - onMessage [${msg.topic}]: ${msg.payload}`);
-                    const value = msg.payload.toString();
-                    if (msg.topicTokens[msg.topicTokens.length - 1] === H_ATTR_TAGS) {
-                        // handle $tags attribute
-                        this.setAttribute('tags', parseCSVString(value))
-                    } else {
-                        // handle all other attributes
-                        const attr = msg.topicTokens[msg.topicTokens.length - 1].substr(1) as keyof TAttributes; // get dollar less atrr name
-                        this.onItemAttributeMessage(attr, value);
-                    }
-                },
-                complete: () => {
-                    this.unsubscribe(`+`);
-                }
-            });
-
-        } else { // Device Mode - only subscribe to tags changes
+                attrsSub.messages$
+                    .pipe(
+                        // Subscribe to device attributes
+                        takeUntil(this.onDestroy$),
+                        filter(
+                            (msg) =>
+                                msg.topicTokens[msg.topicTokens.length - 1].startsWith("$") &&
+                                !(msg.topicTokens[msg.topicTokens.length - 1] === H_ATTR_META),
+                        ), // filter out messages for $meta and $tags (they are handled seperately)
+                    )
+                    .subscribe({
+                        next: (msg) => {
+                            this.log.silly(
+                                `${this.id} - Subscription to '${attr}' - onMessage [${msg.topic}]: ${msg.payload}`,
+                            );
+                            const value = msg.payload.toString();
+                            if (msg.topicTokens[msg.topicTokens.length - 1] === H_ATTR_TAGS) {
+                                // handle $tags attribute
+                                this.setAttribute("tags", parseCSVString(value));
+                            } else {
+                                // handle all other attributes
+                                const attr = msg.topicTokens[msg.topicTokens.length - 1].substr(1) as keyof TAttributes; // get dollar less atrr name
+                                this.onItemAttributeMessage(attr, value);
+                            }
+                        },
+                        complete: () => {
+                            this.unsubscribe(attr);
+                        },
+                    });
+            }
+        } else {
+            // Device Mode - only subscribe to tags changes
 
             // Subscribe to $tags changes
-            const tagSub = this.subscribe('$tags');
+            const tagSub = this.subscribe("$tags");
             subs.push(tagSub);
 
             tagSub.messages$.pipe(takeUntil(this.onDestroy$), distinctUntilChanged()).subscribe({
-                next: msg => {
+                next: (msg) => {
                     this.log.silly(`${this.id} - Subscription to '$tags' - onMessage [${msg.topic}]: ${msg.payload}`);
                     const tags = parseCSVString(msg.payload.toString());
-                    this.setAttribute('tags', tags)
-                }
+                    this.setAttribute("tags", tags);
+                },
             });
         }
-
 
         return subs;
     }
 
-
-
-
-
     onItemAttributeMessage<T extends keyof TAttributes>(name: T, rawValue: string) {
-        this.setAttribute(name, this.parseAttribute(name, rawValue))
+        this.setAttribute(name, this.parseAttribute(name, rawValue));
     }
-
-
 }
+
