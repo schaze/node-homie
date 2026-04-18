@@ -2,7 +2,7 @@ import { firstValueFrom, lastValueFrom, Subject } from "rxjs";
 import { LifecycleBase, OnDestroy, OnInit } from "../misc";
 import { HomieID } from "../model";
 import { MQTTConnectOpts } from "../model";
-import { HomieDevice } from "../Device";
+import { HomieDevice } from "../HomieDevice";
 import { takeUntil } from "rxjs/operators";
 import { SimpleLogger } from "../misc/Logger";
 import { waitForPreviousControllerDown$ } from "./controller";
