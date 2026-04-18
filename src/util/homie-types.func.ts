@@ -4,16 +4,23 @@ export function str2Hm(value: string | undefined | null, datatype: HomieDatatype
     return hm2Type(value, datatype);
 }
 export function hm2Type(value: string | undefined | null, datatype: HomieDatatype | undefined | null): HomieValuesTypes {
+    if (value === undefined || value === null) { return value; }
     try {
         switch (datatype) {
             case 'boolean':
                 return value === 'true';
             case 'integer':
-                return value ? parseInt(value, 10) : 0;
+                return parseInt(value, 10);
             case 'float':
-                return value ? parseFloat(value) : 0;
+                return parseFloat(value);
             case 'datetime':
-                return value ? new Date(value) : new Date(0);
+                return new Date(value);
+            case 'json':
+                return JSON.parse(value);
+            case 'enum':
+            case 'color':
+            case 'duration':
+            case 'string':
             default:
                 return value;
         }
@@ -33,11 +40,17 @@ export function type2Hm(value: HomieValuesTypes, datatype: HomieDatatype): strin
             case 'boolean':
                 return String(value);
             case 'integer':
-                return (value as number).toFixed(0)
+                return (value as number).toFixed(0);
             case 'float':
                 return String(value);
             case 'datetime':
                 return (value as Date).toISOString();
+            case 'json':
+                return typeof value === 'string' ? value : JSON.stringify(value);
+            case 'enum':
+            case 'color':
+            case 'duration':
+            case 'string':
             default:
                 return String(value);
         }

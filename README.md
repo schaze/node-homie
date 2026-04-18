@@ -2,7 +2,7 @@
 [![Node.js Package](https://github.com/schaze/node-homie/actions/workflows/npm-publish.yml/badge.svg)](https://github.com/schaze/node-homie/actions/workflows/npm-publish.yml)
 
 ## tldr;
-A typescript implementation of the homie 4.x convention leveraging rxjs to handle asynchronous message updates native to the mqtt based homie spec.
+A typescript implementation of the homie 5.x convention leveraging rxjs to handle asynchronous message updates native to the mqtt based homie spec.
 
 [![works with MQTT Homie](https://homieiot.github.io/img/works-with-homie.png)](https://homieiot.github.io/)
 
@@ -12,12 +12,20 @@ A typescript implementation of the homie 4.x convention leveraging rxjs to handl
 - Installation
 - Usage as a controller
 - Usage as device(s)
-- Genereal concepts
+- General concepts
+- Breaking changes (v4 → v5)
 - References
 
 ## About
 
-tbd....
+node-homie implements the [Homie 5.0 convention](https://homieiot.github.io/) for MQTT-based IoT device communication. It supports both **device mode** (publishing devices to MQTT) and **controller mode** (discovering and interacting with devices).
+
+Key features:
+- Full Homie 5.0 protocol support (single JSON `$description`, `$state`, `$target`, `$log`, `$alert`)
+- All 9 datatypes: `integer`, `float`, `boolean`, `string`, `enum`, `color`, `datetime`, `duration`, `json`
+- Reactive programming model using RxJS
+- Device discovery and management
+- Query-based property selection
 
 
 ## Installation
@@ -48,7 +56,7 @@ import { watchList } from 'node-homie/rx';
 
 
 // create a Subject that will only get a value when the application should exit
-// this is not specific to node-hoie but will be used to auto-unsubscribe in later examples
+// this is not specific to node-homie but will be used to auto-unsubscribe in later examples
 const onDestroy$ = new Subject<boolean>();
 
 // node-homie offers a device manager class that manages discovered devices and provides options to perform selection and queries
@@ -58,10 +66,10 @@ const devices = new HomieDeviceManager();
 const discovery = new DeviceDiscovery(
     {
         url: 'mqtt://localhost:1883',
-        topicRoot: 'homie-dev',     // optional set another homie root topic path
-        username: undefined,        // mqtt username (optional)
-        password: undefined,        // mqtt password (optional)
-        reconnectPeriod: undefined, // reconnect period on disconnect (optional)
+        topicRoot: 'homie',          // optional set another homie root topic path (default: 'homie')
+        username: undefined,         // mqtt username (optional)
+        password: undefined,         // mqtt password (optional)
+        reconnectPeriod: undefined,  // reconnect period on disconnect (optional)
     }
 );
 
@@ -91,7 +99,7 @@ discovery.events$.pipe(
             // if the device was in the devicemanager
             if (device) {
                 // clear out the object and disconnect from mqtt
-                // note: this will not touch the device in the mqtt message bus (destroy only referes to the javascript object)
+                // note: this will not touch the device in the mqtt message bus (destroy only refers to the javascript object)
                 device.onDestroy();
             }
 
@@ -103,6 +111,7 @@ discovery.events$.pipe(
 
 console.log('starting discovery...')
 // start discovery
+// discovery subscribes to {topicRoot}/5/+/$state to find devices
 discovery.onInit();
 
 
@@ -131,12 +140,12 @@ node-homie supports direct straight forward access to the property and its value
 
 ```typescript
 
-    // get temperature property for weather node of device leq0122770
+    // get temperature property for climate node of device leq0122770
 
     // Manual traversal via device -> node -> property
     // ==================================================
     const device = devices.getDevice('leq0122770');
-    const node = device?.get('weather');
+    const node = device?.get('climate');
     const propManualTraversal = node?.get('temperature');
     console.log('Current temperature: ', propManualTraversal?.value);
 
@@ -144,7 +153,7 @@ node-homie supports direct straight forward access to the property and its value
 
     // direct property access via topic string selector
     // ==================================================
-    const prop = devices.getProperty('leq0122770/weather/temperature');
+    const prop = devices.getProperty('leq0122770/climate/temperature');
     // if found print the properties current value
     console.log('Current temperature: ', prop?.value);
 
@@ -155,7 +164,7 @@ node-homie supports direct straight forward access to the property and its value
     // ==================================================
     const propObjectSelector = devices.getProperty({
         deviceId: 'leq0122770',
-        nodeId: 'weather',
+        nodeId: 'climate',
         propertyId: 'temperature'
     });
     // if found print the properties current value
@@ -170,11 +179,11 @@ You could wrap the call in a timeout and wait some time, to make sure the result
 
 ```typescript
 
-// don´t do this - this is only for demonstration purposes
+// don't do this - this is only for demonstration purposes
 setTimeout(() => {
 
-    // get temperature property for weather node of device leq0122770
-    const prop = devices.getProperty('leq0122770/weather/temperature');
+    // get temperature property for climate node of device leq0122770
+    const prop = devices.getProperty('leq0122770/climate/temperature');
     // if found print the properties current value
     console.log('Current temperature: ', prop?.value);
 
@@ -188,8 +197,8 @@ The below example shows the simplest case of selecting a property as soon as it 
 
 ```typescript
 
-// select temperature property for weather node of device leq0122770
-devices.selectProperty('leq0122770/weather/temperature').pipe(
+// select temperature property for climate node of device leq0122770
+devices.selectProperty('leq0122770/climate/temperature').pipe(
     // unsubsribe on application exit
     takeUntil(onDestroy$),
 ).subscribe({
@@ -208,15 +217,15 @@ Having everything as an observable enables us to easily drill down further and s
 
 ```typescript
 
-// select temperature property for weather node of device leq0122770
-devices.selectProperty('leq0122770/weather/temperature').pipe(
+// select temperature property for climate node of device leq0122770
+devices.selectProperty('leq0122770/climate/temperature').pipe(
     // unsubsribe on application exit
     takeUntil(onDestroy$),
     // subscribe to value updates
     switchMap(property => property.value$),
     // filter out empty values
     filter(notNullish),
-    // only update on temperatue changes
+    // only update on temperature changes
     distinctUntilChanged()
 ).subscribe({
     next: temp => {
@@ -235,10 +244,10 @@ Queries are updated upon any new or removed device and emit a list of properties
 
 ```typescript
 
-// Query all properties below a weather node with id 'temperature'
+// Query all properties below a climate node with id 'temperature'
 devices.query({
     node: {
-        id: 'weather'
+        id: 'climate'
     },
     property: {
         id: 'temperature'
@@ -264,12 +273,12 @@ But what if we wanted to also be updated when any of the actual temperature valu
 As an example we want to always display a list of all temperature properties whenever any temperature changes.
 
 ```typescript
-// Query all properties below a weather node with id 'temperature'
-// Subscribe to their value updates indiviually and emit a list of 
+// Query all properties below a climate node with id 'temperature'
+// Subscribe to their value updates individually and emit a list of 
 // all matched properties whenever any value of any matched property changes
 devices.query({
     node: {
-        id: 'weather'
+        id: 'climate'
     },
     property: {
         id: 'temperature'
@@ -289,7 +298,7 @@ devices.query({
                 prop.value$.pipe(
                     // filter out empty values
                     filter(notNullish),
-                    // only update on temperatue changes
+                    // only update on temperature changes
                     distinctUntilChanged(),
                     // in the end, map back to the property itself
                     map(value =>
@@ -313,13 +322,13 @@ devices.query({
 The above examples requires a firmer knowledge of rxjs and its patterns.
 To simplify the use a bit node-homie also comes with some rx operators that can be used achieve the same result as above with a bit less nested observable composition.
 
-The `watchList` operator will take care of switching to inner subscriptions and combining observable outputs. Only a selector function needs to be provided that determines an update whever it emits. In out case above this leaves only the property value$ observable pipe which is filtered for non empty and changed values.
+The `watchList` operator will take care of switching to inner subscriptions and combining observable outputs. Only a selector function needs to be provided that determines an update whenever it emits. In our case above this leaves only the property value$ observable pipe which is filtered for non empty and changed values.
 
 ```typescript
 
 devices.query({
     node: {
-        id: 'weather'
+        id: 'climate'
     },
     property: {
         id: 'temperature'
@@ -334,7 +343,7 @@ devices.query({
         prop => prop.value$.pipe(
             // filter out empty values
             filter(notNullish),
-            // only update on temperatue changes
+            // only update on temperature changes
             distinctUntilChanged()
         )
     )
@@ -352,9 +361,9 @@ devices.query({
 # Device mode
 With node-homie you can also manage and publish a device to mqtt.
 
-Each device will hold it's own mqtt connection (this is required by the spec due the last will and testament reuirement).
+Each device will hold its own mqtt connection (this is required by the spec due to the last will and testament requirement).
 
-There are 3 main classes representing the different homie topology elements (device, node, property);
+There are 3 main classes representing the different homie topology elements (device, node, property):
 - HomieDevice
 - HomieNode
 - HomieProperty
@@ -384,14 +393,14 @@ const tempSensorProp = sensorNode.add(new HomieProperty(sensorNode, {
 const actorNode = myDevice.add(new HomieNode(myDevice, { id: 'actor', name: 'Virtual actor node', type: 'special-actor' }));
 
 // Add a virtual switch property to the actor node
-const swithProp = actorNode.add(new HomieProperty(actorNode, {
+const switchProp = actorNode.add(new HomieProperty(actorNode, {
     id: 'switch',
     name: 'Virtual switch',
     datatype: HOMIE_TYPE_BOOL,
     retained: true,
     settable: true
 }));
-swithProp.value = 'false';
+switchProp.value = 'false';
 
 
 // Set the property value.
@@ -407,42 +416,27 @@ myDevice.onInit();
 myDevice.onDestroy();
 
 ```
-Any changes to the device, nodes or properties after onInit (also [see Lifecycle concep](#node-homie-object-lifecycle-concept)) will be published directly to mqtt. Before onInit nothing gets published yet. If you do changes to the node or property structure after onInit please ensure to set the device state to 'init' first to follow convetion.
+Any changes to the device, nodes or properties after onInit (also [see Lifecycle concept](#node-homie-object-lifecycle-concept)) will be published directly to mqtt. Before onInit nothing gets published yet. If you do changes to the node or property structure after onInit please ensure to set the device state to 'init' first to follow convention.
 
-Calling onDestroy (also [see Lifecycle concept](#node-homie-object-lifecycle-concept)) will set the devices state to 'disconnected' in mqtt and close the mqtt connection.
+Calling onDestroy (also [see Lifecycle concept](#node-homie-object-lifecycle-concept)) will set the device's state to 'disconnected' in mqtt and close the mqtt connection.
 
 
 `onInit` in the above example will publish the following messages on mqtt:
 ```
-homie-dev/my-homie-device/$state init
+homie/5/my-homie-device/$state              init
 
-homie-dev/my-homie-device/$name My demo homie device
-homie-dev/my-homie-device/$homie 4.0.0
-homie-dev/my-homie-device/$extensions eu.epnw.meta:1.1.0:4.0
-homie-dev/my-homie-device/$nodes sensors,actor
+homie/5/my-homie-device/$description        {"homie":"5.0","name":"My demo homie device","version":1681234567890,"nodes":{"sensors":{"name":"Virtual sensor array","type":"special-sensor","properties":{"temperature":{"name":"Current temperature","datatype":"float","retained":true,"settable":false,"unit":"°C"}}},"actor":{"name":"Virtual actor node","type":"special-actor","properties":{"switch":{"name":"Virtual switch","datatype":"boolean","retained":true,"settable":true}}}}}
 
-homie-dev/my-homie-device/sensors/$name Virtual sensor array
-homie-dev/my-homie-device/sensors/$type special-sensor
-homie-dev/my-homie-device/sensors/$properties temperature
+homie/5/my-homie-device/sensors/temperature 21.4
+homie/5/my-homie-device/actor/switch        false
 
-homie-dev/my-homie-device/sensors/temperature 21.4
-homie-dev/my-homie-device/sensors/temperature/$settable false
-homie-dev/my-homie-device/sensors/temperature/$retained true
-homie-dev/my-homie-device/sensors/temperature/$name Current temperature
-homie-dev/my-homie-device/sensors/temperature/$datatype float
-homie-dev/my-homie-device/sensors/temperature/$unit °C
-
-homie-dev/my-homie-device/actor/$name Virtual actor node
-homie-dev/my-homie-device/actor/$type special-actor
-homie-dev/my-homie-device/actor/$properties switch
-
-homie-dev/my-homie-device/actor/switch/$settable true
-homie-dev/my-homie-device/actor/switch/$retained true
-homie-dev/my-homie-device/actor/switch/$name Virtual switch
-homie-dev/my-homie-device/actor/switch/$datatype boolean
-
-homie-dev/my-homie-device/$state ready
+homie/5/my-homie-device/$state              ready
 ```
+
+Key differences from Homie v4:
+- Topics include a `/5/` version segment: `{topicRoot}/5/{device-id}/...`
+- All device/node/property metadata is published as a single JSON document on `$description` (no more individual `$name`, `$datatype`, `$nodes`, `$properties` topics)
+- Only `$state` and property values remain as separate topics
 
 
 ## Handle 'set' messages for devices
@@ -451,41 +445,107 @@ If you want to react on 'set' messages for the above virtual switch, you can sub
 
 ```typescript
 
-swithProp.onSetMessage$.pipe(
-    takeUntil(swithProp.onDestroy$)
+switchProp.onSetMessage$.pipe(
+    takeUntil(switchProp.onDestroy$)
 ).subscribe({
     next: event => {
-        const prop = event.property;        // the property for which the set was called - will be swtichProp in this case
+        const prop = event.property;        // the property for which the set was called - will be switchProp in this case
         const value = event.value;          // the parsed and typed value of the set call (`true` or `false`) for this property
         const valueStr = event.valueStr;    // the string value that was actually received 'true' or 'false' for this property
 
         console.log(`Switch was requested to be turned to ${value}`);
 
-        prop.value = valueStr; // update the actual state of the property witht he requested value;
+        prop.value = valueStr; // update the actual state of the property with the requested value;
     }
 });
 
 
 ```
 
-Please note that you will need to update the properties state yourself (or decide not do so if there are other circumstances).
+Please note that you will need to update the property's state yourself (or decide not do so if there are other circumstances).
 
 To test the above code we can publish a 'true' value to the switch property's set topic:
 
 ```typescript
 
-mqtt.publish$('homie-dev/my-homie-device/actor/switch/set', 'true').subscribe();
+mqtt.publish$('homie/5/my-homie-device/actor/switch/set', 'true').subscribe();
 
 ```
 
-This will output the following and set the properties value to true;
+This will output the following and set the property's value to true:
 
 ```
-2021-12-29T12:29:07.777Z info [:HomieProperty:switch]: homie-dev/my-homie-device/actor/switch - Property SET command
+2021-12-29T12:29:07.777Z info [:HomieProperty:switch]: homie/5/my-homie-device/actor/switch - Property SET command
 Switch was requested to be turned to true
 ```
 
 
+## $target support
+
+Properties support a `$target` attribute for intermediate state updates. This is useful when a property is transitioning to a new value (e.g. a dimmer ramping up).
+
+```typescript
+
+// In device mode: publish a target value
+await lastValueFrom(myProperty.publishTarget$('75'));
+
+// In controller mode: observe target changes
+myProperty.target$.pipe(
+    takeUntil(onDestroy$)
+).subscribe({
+    next: target => {
+        console.log('Target value: ', target);
+    }
+});
+
+```
+
+
+## $log and $alert support
+
+Devices can publish log messages and alerts:
+
+```typescript
+
+// In device mode: publish a log message (non-retained, QoS 1)
+await lastValueFrom(myDevice.publishLog$('info', 'Sensor calibration complete'));
+
+// In device mode: publish an alert (retained, QoS 2)
+await lastValueFrom(myDevice.publishAlert$('sensor-fault', 'Temperature sensor not responding'));
+
+// In device mode: clear an alert
+await lastValueFrom(myDevice.clearAlert$('sensor-fault'));
+
+// In controller mode: observe log events
+myDevice.logEvent$.pipe(
+    takeUntil(onDestroy$)
+).subscribe({
+    next: event => {
+        console.log(`[${event.level}] ${event.message}`);
+    }
+});
+
+// In controller mode: observe alert events
+myDevice.alertEvent$.pipe(
+    takeUntil(onDestroy$)
+).subscribe({
+    next: event => {
+        console.log(`Alert ${event.alertId}: ${event.message}`);
+    }
+});
+
+// In controller mode: get current active alerts
+myDevice.alerts$.pipe(
+    takeUntil(onDestroy$)
+).subscribe({
+    next: alerts => {
+        alerts.forEach((message, alertId) => {
+            console.log(`Active alert: ${alertId} - ${message}`);
+        });
+    }
+});
+
+```
 
 
 
@@ -518,7 +578,7 @@ e.g.:
 `2021-12-29T12:29:07.777Z info [my-app:HomieProperty:switch]: test log message `
 
 
-To integrate node-homies SimpleLogger in the logging solution of your choice you can also override the `SimpleLogger.logOutput` method to bridge to your logging library or also change the logoutput format.
+To integrate node-homie's SimpleLogger in the logging solution of your choice you can also override the `SimpleLogger.logOutput` method to bridge to your logging library or also change the logoutput format.
 
 For example to link with winston logging library:
 
@@ -558,7 +618,7 @@ SimpleLogger.logOutput = (domain: string, type: string, name: string, logLevel: 
 
 
 ## Node-homie object lifecycle concept
-Node-homie borrows from angulars lifecylce method concept
+Node-homie borrows from angular's lifecycle method concept.
 
 All node-homie objects implement the following 2 lifecycle interfaces:
 
@@ -580,8 +640,8 @@ export interface OnInit {
  */
 export interface OnDestroy {
     /**
-     * Called before an Object is destroyed. All ressources, listeners, etc should be cleanup here.
-     * @returns Promise in case of async destrution
+     * Called before an Object is destroyed. All resources, listeners, etc should be cleaned up here.
+     * @returns Promise in case of async destruction
      */
     onDestroy(): Promise<void>;
 }
@@ -589,12 +649,48 @@ export interface OnDestroy {
 ```
 
 These methods need to be called for all objects to take care of their lifecycle. 
-OnInit will start connections (e.g. to mqtt) or other active parts of the object an allocate data. With onDestroy connections will be closed and data freed.
+OnInit will start connections (e.g. to mqtt) or other active parts of the object and allocate data. With onDestroy connections will be closed and data freed.
 Please note both are async methods (Promise based) so you can also actually `await` on their completion.
 
 
+# Breaking changes (v4 → v5)
+
+This version implements the Homie 5.0 convention and contains several breaking changes from the previous v4-based releases.
+
+## Topic structure
+- v4: `{topicRoot}/{device-id}/$homie`, `{topicRoot}/{device-id}/$name`, ...
+- v5: `{topicRoot}/5/{device-id}/$state`, `{topicRoot}/5/{device-id}/$description`, `{topicRoot}/5/{device-id}/{node}/{prop}`
+
+All topics now include a `/5/` version segment after the topic root.
+
+## Device description
+- v4: Each attribute (`$name`, `$datatype`, `$nodes`, `$properties`, etc.) published as separate retained MQTT topics
+- v5: Single JSON document published on `$description` topic. Only `$state` and property values remain as separate topics.
+
+## New features
+- `json` datatype added
+- `$target` property support for intermediate state updates
+- `$log/{level}` topic for device logging (non-retained, QoS 1)
+- `$alert/{alert_id}` topic for alerts (retained, QoS 2)
+- `alert` device state
+- Device hierarchy: `root`, `parent`, `children` fields
+- `type` field on device description
+- `version` field in description (timestamp, must change on updates)
+
+## Removed from v4
+- Individual `$name`, `$datatype`, `$format`, `$settable`, `$retained`, `$unit` topics per property
+- `$nodes`, `$properties` attribute topics
+- `$fw/*`, `$implementation/*`, `$stats/*` attributes
+- Tags/meta concept (now via extension)
+
+## API changes
+- `setAttributes()` → `patchAttributes()` — for partial attribute updates
+- `addInitNode()` → `add()` — nodes are added synchronously before `onInit()`
+- `HomieProperty.parent` → `HomieProperty.node` — accessor for parent node
+- `DeviceDiscovery` constructor no longer takes a boolean parameter
+- Model type renames: `BaseItemAttributes` → `BaseAttributes`, `HomieNodeAttributes` → `NodeAttributes`, `HomiePropertyAttributes` → `PropertyAttributes`
 
 
 # References
 - Core class architecture was inspired by the excellent library https://github.com/chrispyduck/homie-device 
-- Homie comvention: https://homieiot.github.io/
+- Homie convention: https://homieiot.github.io/

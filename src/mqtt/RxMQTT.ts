@@ -1,12 +1,13 @@
 
-import { connect, IClientPublishOptions, IClientSubscribeOptions, IPublishPacket, MqttClient, Packet } from "mqtt";
-import { BehaviorSubject, Observable, of, Subject } from "rxjs";
-import { filter, takeUntil } from "rxjs/operators";
-import { OnDestroy, OnInit } from "../misc";
+import { connect, IClientPublishOptions, IClientSubscribeOptions, IPublishPacket, ISubscriptionGrant, MqttClient, Packet } from "mqtt";
+import { BehaviorSubject, merge, Observable, ReplaySubject, Subject, Subscription, Unsubscribable, using } from "rxjs";
+import { filter, share,takeUntil } from "rxjs/operators";
+import { LifecycleBase } from "../misc";
 import { SimpleLogger } from "../misc/Logger";
 import { MQTTConnectOpts } from "../model";
-import { mqttTopicMatch } from "../util";
+import { isMqttWildcardTopic, mqttTopicMatch } from "../util";
 import { Buffer } from 'buffer';
+import { MqttReplaySubject } from "./MqttReplaySubject";
 
 const empty = Buffer.allocUnsafe(0);
 
@@ -35,7 +36,10 @@ export interface MqttSubscription {
 }
 
 
-export class RxMqtt implements OnInit, OnDestroy {
+
+
+export class RxMqtt extends LifecycleBase {
+    static counter = 0;
     protected readonly log: SimpleLogger;
     protected mqtt: MqttClient | undefined;
 
@@ -57,7 +61,9 @@ export class RxMqtt implements OnInit, OnDestroy {
     private _onMessage$ = new Subject<MqttMessage>();
     onMessage$ = this._onMessage$.asObservable();
 
-    private subscriptions = new Map<string, MqttSubscription>();
+    private observables = new Map<string, Observable<MqttMessage>>();
+
+    private activateOnConnect: (() => void)[] = [];
 
     public get disconnecting(): boolean {
         return this.mqtt ? this.mqtt.disconnecting : false;
@@ -74,8 +80,12 @@ export class RxMqtt implements OnInit, OnDestroy {
         return this._connectionInfo$.value;
     }
 
-    constructor(public readonly mqttOpts: MQTTConnectOpts) {
-        this.log = new SimpleLogger(this.constructor.name, `${mqttOpts.url}`);
+    constructor(
+        public readonly mqttOpts: MQTTConnectOpts
+    ) {
+        super();
+        this.log = new SimpleLogger(this.constructor.name, `instance-${RxMqtt.counter}`);
+        RxMqtt.counter++;
     }
 
     async onInit(): Promise<void> {
@@ -91,6 +101,10 @@ export class RxMqtt implements OnInit, OnDestroy {
                 const onConnect = () => {
                     this.updateConnectionInfo();
                     if (this.mqtt) {
+                        this.activateOnConnect.forEach(activate => {
+                            activate();
+                        });
+                        this.activateOnConnect = [];
                         this.mqtt.removeListener('conect', onConnect);
                         this.mqtt.removeListener('error', onError);
                     }
@@ -187,7 +201,7 @@ export class RxMqtt implements OnInit, OnDestroy {
         return new Observable(subscriber => {
             this.mqtt!.publish(topic, message ? message : empty, opts !== undefined ? opts : {}, (error, packet) => {
                 if (!error) {
-                    subscriber.next(packet);
+                    subscriber.next(packet!);
                 } else {
                     subscriber.error(error);
                 }
@@ -197,86 +211,99 @@ export class RxMqtt implements OnInit, OnDestroy {
 
     }
 
-    public subscribe(topic: string, opts?: IClientSubscribeOptions): MqttSubscription {
-        // if (!this.mqtt) { throw new Error('Subscribe before rxMqtt initialized!'); }
-        // Try to avoid resubscribing for topics that are already covered by wildcard subscriptions
-        // this can lead to duplicate messages for some brokers.
-        // This will only cover specific topics without wildcards beeing subscribed to after a matching wildcard
-        // subscription. If the specific topic was already subscribed before this wont work
-        if (!topic.includes('#') && !topic.includes('+') && !this.subscriptions.has(topic)) {
-            for (const [key, subs] of this.subscriptions.entries()) {
+    /**
+     * Subscribe to a mqtt topic and return an observable of messages.
+     * When the last Observable subscriber unsubscribes the mqtt topic will be unsubscribed as well.
+     * 
+     * @param topic mqtt topic to be subscribed to.
+     * @param retained wether to treat the messages from this subscription as retained. MQTT subscriptions are kept to a minimum and no same topic will be subsribed to more than once. 
+     * This is due to problems with some brokers (e.g. vernemq, nanomq) which will send all messages as many times as there are subscriptions even for the same topic.
+     * Due to this a 2nd, 3rd,... Observable subscriber to the same topic would never receive the retained messages from the server as these we sent only once in the beginning.
+     * When setting retained to true all these messages will be buffered in order and only once per topic and re-emitted for every "late" subscriber. Please note that this
+     * is also true for messages that were sent to the server without the retained message flag!
+     * @param opts subscription options, will default to {qos: 2}
+     * @returns An observable of messages.
+     */
+    public subscribe(topic: string, retained: boolean = false, opts: IClientSubscribeOptions = { qos: 2 }): Observable<MqttMessage> {
+        if (!this.observables.has(topic)) {
+            // Try to avoid resubscribing for topics that are already covered by wildcard subscriptions
+            // this can lead to duplicate messages for some brokers.
+            // This will only cover more specific (wildcard-) topics  beeing subscribed to after a matching less specific wildcard
+            // subscription. If the specific topic was already subscribed before this wont work
+            for (const [key, subs] of this.observables.entries()) {
                 if (mqttTopicMatch(key, topic)) {
-                    // this.log.verbose(`Using existing subscription to ${key} for ${topic}`);
-                    return { ...subs, messages$: subs.messages$.pipe(filter(msg => msg.topic === topic)) }
+                    return subs.pipe(filter(msg => mqttTopicMatch(topic, msg.topic)));
                 }
             }
-        }
 
-        if (!this.subscriptions.has(topic)) {
-            const active = new BehaviorSubject<boolean>(false);
-            const unsubscribe = new Subject<boolean>();
+            const rejected$ = new Subject<MqttMessage>();
 
-            const subscription: MqttSubscription = {
-                topic,
-                active: active.asObservable(),
-                activate: () => {
-                    if (!this.mqtt) { throw new Error('Cannot activate subscribtion before rxMqtt is initialized!'); }
-                    if (this.mqtt && !active.value) {
-                        this.mqtt.subscribe(topic, opts !== undefined ? opts : { qos: 2 }, (error, granted) => {
-                            if (!error) {
-                                active.next(true);
+            const unsubscribe = (_topic: string = topic) => {
+                this.observables.delete(_topic);
+                this.mqtt?.unsubscribe(_topic);
+            }
+
+            const activate = () => {
+                this.mqtt?.subscribe(topic, opts !== undefined ? opts : { qos: 2 }, (error, granted: ISubscriptionGrant[]) => {
+                    if (granted) { // granted can be undefined when an error occurs when the client is disconnecting
+                        granted.forEach((granted_: ISubscriptionGrant) => {
+                            if (granted_.qos === 128) {
+                                unsubscribe(granted_.topic)
+                                rejected$.error(`subscription for '${granted_.topic}' rejected!`);
                             }
                         });
                     }
-                },
-                messages$: this.onMessage$.pipe(takeUntil(unsubscribe), filter(event => mqttTopicMatch(topic, event.topic))),
-                unsubscribe: () => {
-                    this.mqtt?.unsubscribe(topic, undefined, (error, packet)=>{
-                        if (!error) {
-                            unsubscribe.next(true);
-                            unsubscribe.complete();
-                            active.next(false);
-                            active.complete();
-                        }
-                    } )
-                }
-            }
+                });
+            };
 
-            this.subscriptions.set(
-                topic,
-                subscription
-            );
+
+
+            const msgs$ = using(
+                () => {
+                    const subscription: Subscription = new Subscription();
+                    // support subscriptions before mqtt connection is established.
+                    if (!this.mqtt) {
+                        this.activateOnConnect.push(activate);
+                    } else {
+                        activate();
+                    }
+                    subscription.add(() => {
+                        unsubscribe();
+                    });
+                    return subscription;
+
+                },
+                (subscription: Unsubscribable | void) => merge(rejected$, this.onMessage$)).pipe(
+                    filter((msg: MqttMessage) => mqttTopicMatch(topic, msg.topic)),
+                    retained ? share(
+                        {
+                            connector: () => isMqttWildcardTopic(topic) ? new MqttReplaySubject() : new ReplaySubject(1),
+                            resetOnError: true,
+                            resetOnComplete: false,
+                            resetOnRefCountZero: true
+                        }
+
+                    ) : share(),
+                    takeUntil(this.onDestroy$),
+                );
+
+            this.observables.set(topic, msgs$);
         }
-        return this.subscriptions.get(topic)!;
+        return this.observables.get(topic)!
+
     }
 
     private onMessage(topic: string, payload: Buffer, packet: IPublishPacket) {
-        const event = { topic, payload, packet, topicTokens: topic.split('/') };
-        this._onMessage$.next(event);
+        const msg = { topic, payload, packet, topicTokens: topic.split('/') };
+        this._onMessage$.next(msg);
     }
 
 
-    public unsubscribe(topic: string) {
-        if (!this.mqtt) { return; }
-       
-        const sub = this.subscriptions.get(topic);
-        if (!sub) { return; }
-
-        
-        sub.unsubscribe();
-        this.subscriptions.delete(topic);
-    }
-
-    public unsubscribeAll() {
-        for (const subTopic of this.subscriptions.keys()) {
-            this.unsubscribe(subTopic);
-        }
-    }
-
-    async onDestroy(): Promise<void> {
+    override async onDestroy(): Promise<void> {
+        await super.onDestroy();
         return new Promise((resolve, reject) => {
             try {
-                this.unsubscribeAll();
+                // this.unsubscribeAll();
                 this._onMessage$.complete();
                 const cleanup = () => {
                     this._onConnect$.complete();

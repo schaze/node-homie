@@ -1,14 +1,16 @@
-import { BaseItemCondition, instanceOfConditionSelector, instanceOfMetaCondition, MetaCondition, ValueCondition, MetaAttributes } from "../model";
-import { getMetaByKey } from "./meta.func";
+import { BaseRXObjectCondition, isValueOperatorCondition, isPrimitive, RXObjectQuery, ValueCondition } from "../model";
 
-export function evaluateBaseItemCondition(obj: any, condition: string | BaseItemCondition): boolean {
-    if (typeof condition === 'string') {
-        if (condition === '*') { return true }
-        return condition === obj.id;
+export function evaluateObjectCondition<T>(obj: any, condition: RXObjectQuery<T>, idAttr: string = 'id'): boolean {
+    if (condition === null || condition === undefined) { return true; }
+    if (isPrimitive(condition)) {
+        if (Object.prototype.hasOwnProperty.call(obj, idAttr)) {
+            return condition === obj[idAttr];
+        }
+        return false;
     }
     for (const key in condition) {
         if (Object.prototype.hasOwnProperty.call(condition, key)) {
-            const sel = condition[key as keyof BaseItemCondition];
+            const sel = condition[key as keyof BaseRXObjectCondition<T>];
             if (!evaluateValueCondition(obj[key], sel)) { return false; }
         }
     }
@@ -33,9 +35,9 @@ export function includesAll<T>(toCheckArr: T[], checkWithArr: T[]): boolean {
     return true;
 }
 
-export function evaluateValueCondition<T, K = T>(value: T, condition: ValueCondition<T, K> | MetaCondition): boolean {
+export function evaluateValueCondition<T>(value: T, condition: ValueCondition<T>): boolean {
 
-    if (instanceOfConditionSelector(condition)) {
+    if (isValueOperatorCondition(condition)) {
         if (condition.operator === 'matchAlways') { return true; }
 
         if (value instanceof Array) {
@@ -44,7 +46,7 @@ export function evaluateValueCondition<T, K = T>(value: T, condition: ValueCondi
                     return includesAny<T>(value, condition.value);
                 } else if (condition.operator === 'includesAll') {
                     return includesAll<T>(value, condition.value);
-                } else if (condition.operator === 'includesNone'){
+                } else if (condition.operator === 'includesNone') {
                     return !includesAny<T>(value, condition.value);
                 }
                 // All other operators are not applicable
@@ -61,11 +63,11 @@ export function evaluateValueCondition<T, K = T>(value: T, condition: ValueCondi
             if (condition.value instanceof Array) {
                 if (condition.operator === '=') {
                     return condition.value.includes(value);
-                }else if (condition.operator === '<>'){
+                } else if (condition.operator === '<>') {
                     return !condition.value.includes(value);
                 }
                 // All other operators are not applicable
-            } else if (condition.value !== undefined) {
+            } else if (condition.value !== undefined && condition.value !== null) {
                 switch (condition.operator) {
                     case '=':
                         return typeof condition.value === 'number' ? Number(value) === condition.value : value === condition.value
@@ -78,25 +80,22 @@ export function evaluateValueCondition<T, K = T>(value: T, condition: ValueCondi
                     case '>=':
                         return value >= condition.value
                     case '<>':
-                        return !(typeof condition.value === 'number' ? Number(value) === condition.value : value === condition.value)
+                        return !(typeof condition.value === 'number' ? Number(value) !== condition.value : value !== condition.value)
+                    default:
+                        return value === condition.value
+                }
+            } else if (condition.value === undefined || condition.value === null) {
+                switch (condition.operator) {
+                    case '=':
+                        return value === condition.value
+                    case '<>':
+                        return value !== condition.value
                     default:
                         return value === condition.value
                 }
             }
             return false;
         }
-    } else if (instanceOfMetaCondition(condition)) {
-        // const [metakey, subkey, ..._] = condition.key instanceof Array ? condition.key : [condition.key, undefined];
-        const meta = value as unknown as MetaAttributes;
-        const metaItem = getMetaByKey(condition.key instanceof Array ? condition.key : [condition.key], meta);
-        if (!metaItem) { return false; }
-       
-        if (!condition.value) { return true; }
-        if (condition.value instanceof Array) {
-            return metaItem.value ? condition.value.includes(metaItem.value) : false;
-        }
-        return condition.value === metaItem.value;
-
     } else if (condition instanceof Array) {
         if (value instanceof Array) {
             return includesAny<T>(value, condition);

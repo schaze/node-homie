@@ -1,8 +1,8 @@
 import { MonoTypeOperatorFunction, Observable, race, timer } from "rxjs";
-import { pluck, filter, take, tap, mapTo, switchMap } from "rxjs/operators";
-import { HomieDevice, HomieNode, HomieProperty } from "..";
-import { HomieBase, HomieItemBase } from "../homie-base";
-import { BaseAtrributes, DeviceState, HomieDeviceMode, HomieID } from "../model";
+import { filter, take, tap, switchMap, map } from "rxjs/operators";
+import { HomieDevice } from "..";
+import { HomieElement } from "../HomieElement";
+import { HomieDeviceMode, HomieElementDescription, HomieElementPointer, HomieID, IDAttributeImpl } from "../model";
 import { MQTTConnectOpts } from "../model";
 
 /**
@@ -17,12 +17,12 @@ export function waitForPreviousControllerDown$(id: HomieID, mqttOpts: MQTTConnec
     const controllerDeviceDiscover = new HomieDevice({ id }, mqttOpts, HomieDeviceMode.Controller);
 
     const state$ = controllerDeviceDiscover.attributes$.pipe(
-        pluck('state'),
+        map(attrs => attrs.state),
         filter(state => state === 'disconnected' || state === 'lost'),
         take(1),
-        mapTo(true)
+        map(() => true)
     );
-    
+
     controllerDeviceDiscover.onInit();
 
     if (timeout === -1) {
@@ -36,17 +36,16 @@ export function waitForPreviousControllerDown$(id: HomieID, mqttOpts: MQTTConnec
             tap(async _ => {
                 await controllerDeviceDiscover.onDestroy();
             }),
-            mapTo(false))
+            map(() => false))
         );
     }
 }
 
 
-export function filterForAttribute<T, P extends HomieBase<BaseAtrributes> | undefined, R extends BaseAtrributes, K extends keyof R>(homieItem: HomieItemBase<P, R>, key: K, predicate: (value: R[K]) => boolean): MonoTypeOperatorFunction<T> {
-    return <T>(source: Observable<T>) => {
-
+export function filterExternal<T, P>(item: T, predicate: (value: T) => Observable<boolean>): MonoTypeOperatorFunction<P> {
+    return <P>(source: Observable<P>) => {
         return source.pipe(
-            switchMap(source => homieItem.attributes$.pipe(pluck(key), filter(attr => predicate(attr)), mapTo(source)))
-        );
+            switchMap(source => predicate(item).pipe(filter(r => r), map(r => source)))
+        )
     }
 }
